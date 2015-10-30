@@ -1,0 +1,2 @@
+export DEMOROOT=$(pwd)
+export ARDUINO_HOME=$DEMOROOT/arduino-1.5.7

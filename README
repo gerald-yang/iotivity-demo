@@ -1,0 +1,47 @@
+This is a demo for iotivity 1.0.0 on several different devices, include a demo server on Arduino with Grove starter kit,
+a demo server on Raspberry Pi 2 with GrovePi, a demo client which is able to run on ARM v7 devices or on just on a PC.
+The demo client can find the demo server and send/receive requests.
+
+The following are the build instructions and hardware configurations.
+
+Arduino
+  Hardware configurations
+    1. Arduino Due board
+
+    2. Plug Grove on Arduino Due
+
+    3. Connect Grove sensors to Grove board
+         Grove Buzzer:             D2
+         Grove Button:             D3
+         Grove Serno:              D6
+         Grove LED:                D7
+         Grove Touch:              D8
+         Grove Temperature sensor: A0
+         Grove Sound sebsor:       A1
+         Grove Light sensor:       A2
+         Grove Angle sensor:       A3
+         Grove RGB LCD:            SDA1, SCL1
+             (The second TWI interface on Arduino Due needs to add a 1.5k pullup resister to SDA1 and SCL1 to make it work,
+              please see the second_I2C_LCD.jpg.
+              For the first TWI, the pullup resister is board build-in, no need to add it.)
+
+    4. Plug Arduino ethernet shield on Grove
+
+
+  Build instructions
+    1. setup environment
+       source env-setup
+
+    2. build iotivity with arduino-1.5.7
+       ./build_iotivity_arduino.sh
+
+    3. build the demo server only
+       ./build_iotivity_arduino.sh build demoserver
+
+    4. program the demoserver to Arduino Due board
+       ./build_iotivity_arduino.sh program demoserver
+
+    5. the demo server is located in iotivity-1.0.0/resource/csdk/stack/samples/arduino/SimpleClientServer/demoserver
+
+Raspberry Pi 2
+
