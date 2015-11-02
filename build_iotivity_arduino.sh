@@ -23,6 +23,9 @@ elif [ "$1" = "program" ]; then
 		echo "Unknown option: $s"
 		exit 1
 	fi
+elif [ "$1" = "clean" ]; then
+	cd iotivity-1.0.0 && scons TARGET_OS=arduino TARGET_ARCH=arm SHIELD=ETH -c
+	cd iotivity-1.0.0 && scons TARGET_OS=arduino TARGET_ARCH=arm SHIELD=ETH resource/csdk/stack -c
 else
 	echo "Unknown option: $1"
 	exit 1

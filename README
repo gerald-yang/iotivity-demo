@@ -4,7 +4,7 @@ The demo client can find the demo server and send/receive requests.
 
 The following are the build instructions and hardware configurations.
 
-Arduino
+Arduino with Grove starter kit (http://www.seeedstudio.com/depot/Grove-Starter-Kit-for-Arduino-p-1855.html)
   Hardware configurations
     1. Arduino Due board
 
@@ -43,5 +43,36 @@ Arduino
 
     5. the demo server is located in iotivity-1.0.0/resource/csdk/stack/samples/arduino/SimpleClientServer/demoserver
 
-Raspberry Pi 2
 
+Raspberry Pi 2 with GrovePi (http://www.dexterindustries.com/GrovePi/)
+  Hardware configurations
+    1. Raspberry Pi 2
+
+    2. Plug GrovePi on Raspberry Pi 2
+
+    3. Connect GrovePi sensors to GrovePi board
+         GrovePi Button:                          D3
+         GrovePi Red LED:                         D4
+         GrovePi Green LED:                       D5
+         GrovePi Blue LED:                        D6
+         GrovePi Temperature and Humidity sensor: D7
+         GrovePi Buzzer:                          D8
+         GrovePi Light sensor:                    A0
+         GrovePi Sound sensor:                    A1
+         GrovePi LCD:                             I2C-2
+
+  Build instructions
+    1. Build Iotivity on Raspberry Pi 2, please copy iotivity-demo to Raspberry Pi 2
+
+    2. Install packages for building iotivity
+       sudo apt-get install scons git-core ssh g++ python-dev autotools-dev libicu-dev build-essential libbz2-dev
+                            libboost-thread1.55-dev libboost-all-dev uuid-dev pkg-config libglib2.0-dev libssl-dev zip
+
+    3. Build demoserver and democlient
+       ./build_iotivity_rp2.sh
+
+
+On regular PC
+  Build instructions
+    1. Build Iotivity democlient on PC
+       ./build_iotivity_pc.sh

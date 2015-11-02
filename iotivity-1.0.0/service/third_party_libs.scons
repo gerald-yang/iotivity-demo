@@ -47,6 +47,7 @@ if target_os in ['linux', 'tizen']:
 *******************************************************************************
 ''' % target_arch
 
+	if target_arch not in ['armeabi-v7a-hard']:
 		conf = Configure(lib_env)
 
 		if target_os not in ['tizen'] and not conf.CheckLib('boost_thread', language='C++'):
