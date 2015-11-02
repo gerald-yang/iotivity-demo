@@ -4,7 +4,7 @@ import math
 import decimal
 import time
 import grovepi
-import grove_rgb_lcd
+from grove_rgb_lcd import grove_rgb_lcd
 
 # LED configs
 led_red = 4

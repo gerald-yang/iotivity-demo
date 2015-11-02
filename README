@@ -29,19 +29,19 @@ Arduino with Grove starter kit (http://www.seeedstudio.com/depot/Grove-Starter-K
 
 
   Build instructions
-    1. setup environment
-       source env-setup
+    1. Setup environment
+       source ./env-setup
 
-    2. build iotivity with arduino-1.5.7
+    2. Build iotivity with arduino-1.5.7
        ./build_iotivity_arduino.sh
 
-    3. build the demo server only
+    3. Build the demo server only
        ./build_iotivity_arduino.sh build demoserver
 
-    4. program the demoserver to Arduino Due board
+    4. Program the demoserver to Arduino Due board
        ./build_iotivity_arduino.sh program demoserver
 
-    5. the demo server is located in iotivity-1.0.0/resource/csdk/stack/samples/arduino/SimpleClientServer/demoserver
+    5. The demo server is located in iotivity-1.0.0/resource/csdk/stack/samples/arduino/SimpleClientServer/demoserver
 
 
 Raspberry Pi 2 with GrovePi (http://www.dexterindustries.com/GrovePi/)
@@ -62,15 +62,26 @@ Raspberry Pi 2 with GrovePi (http://www.dexterindustries.com/GrovePi/)
          GrovePi LCD:                             I2C-2
 
   Build instructions
-    1. Build Iotivity on Raspberry Pi 2, please copy iotivity-demo to Raspberry Pi 2
+    1. Build Iotivity on Raspberry Pi 2, please copy iotivity-demo to Raspberry Pi 2 and setup environment
+       source ./env-setup
 
     2. Install packages for building iotivity
        sudo apt-get install scons git-core ssh g++ python-dev autotools-dev libicu-dev build-essential libbz2-dev
-                            libboost-thread1.55-dev libboost-all-dev uuid-dev pkg-config libglib2.0-dev libssl-dev zip
+                            libboost-thread1.55-dev libboost-all-dev uuid-dev pkg-config libglib2.0-dev libssl-dev
+                            zip
 
-    3. Build demoserver and democlient
+    3. Install packages for accessing GrovePi
+       sudo apt-get install python-smbus python-setuptools python-pip
+       sudo pip install RPi.GPIO
+
+    4. Build demoserver and democlient
        ./build_iotivity_rp2.sh
 
+    5. The demoserver is located in iotivity-1.0.0/resource/examples/demoserver
+
+    6. Run demoserver
+       ./run_iotivity_server_rp2.sh
+       
 
 On regular PC
   Build instructions
