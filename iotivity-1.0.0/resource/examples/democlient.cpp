@@ -867,9 +867,90 @@ static void print_menu_button()
 	std::cout << "3 : Read button status" << std::endl;
 }
 
-int main(int argc, char* argv[]) {
-
+void *find_all_resource(void *)
+{
 	std::ostringstream requestURI;
+
+	// Raspberry Pi 2 server
+	std::string sensor_rt = "?rt=grovepi.sensor";
+	std::string led_rt = "?rt=grovepi.led";
+	std::string lcd_rt = "?rt=grovepi.lcd";
+	std::string buzzer_rt = "?rt=grovepi.buzzer";
+	std::string button_rt = "?rt=grovepi.button";
+
+	// Arduino server
+	std::string sensor_rt_a = "?rt=grove.sensor";
+	std::string led_rt_a = "?rt=grove.led";
+	std::string lcd_rt_a = "?rt=grove.lcd";
+
+	while(!sensorResource || !ledResource || !lcdResource || !buzzerResource || !buttonResource
+		|| !sensorResourceA || !ledResourceA || !lcdResourceA) {
+
+		// Find all resources
+		if(!sensorResource) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << sensor_rt;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding Sensor Resource... " <<std::endl;
+		}
+
+		if(!ledResource) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << led_rt;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding LED Resource... " <<std::endl;
+		}
+
+		if(!lcdResource) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << lcd_rt;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding LCD Resource... " <<std::endl;
+		}
+
+		if(!buzzerResource) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << buzzer_rt;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding Buzzer Resource... " <<std::endl;
+		}
+
+		if(!buttonResource) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << button_rt;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding Button Resource... " <<std::endl;
+		}
+
+		if(!sensorResourceA) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << sensor_rt_a;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding Arduino Sensor Resource... " <<std::endl;
+		}
+
+		if(!ledResourceA) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << led_rt_a;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding Arduino LED Resource... " <<std::endl;
+		}
+
+		if(!lcdResourceA) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << lcd_rt_a;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding Arduino LCD Resource... " <<std::endl;
+		}
+
+		sleep(5);
+	}
+
+	return NULL;
+}
+
+int main(int argc, char* argv[])
+{
 	OCPersistentStorage ps {client_open, fread, fwrite, fclose, unlink };
 
 	if(argc >= 2) {
@@ -896,101 +977,34 @@ int main(int argc, char* argv[]) {
 	OCPlatform::Configure(cfg);
 	std::cout << "done" << std::endl;
 
-	try 
-	{
-#if 0
-		while(!sensorResource || !ledResource || !lcdResource || !buzzerResource || !buttonResource) {
-			std::string sensor_rt = "?rt=grovepi.sensor";
-			std::string led_rt = "?rt=grovepi.led";
-			std::string lcd_rt = "?rt=grovepi.lcd";
-			std::string buzzer_rt = "?rt=grovepi.buzzer";
-			std::string button_rt = "?rt=grovepi.button";
+	pthread_t tid;
+	pthread_create(&tid, NULL, find_all_resource, NULL);
 
-			// Find all resources
-			if(!sensorResource) {
-				requestURI.str("");
-				requestURI << OC_RSRVD_WELL_KNOWN_URI << sensor_rt;
-				OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-				std::cout<< "Finding Sensor Resource... " <<std::endl;
-			}
+	double curr_light = mydemo.sensor_light;
+	//double curr_temp = mydemo.sensor_temp;
+	double curr_temp = mydemo.sensor_temp = 100;
 
-			if(!ledResource) {
-				requestURI.str("");
-				requestURI << OC_RSRVD_WELL_KNOWN_URI << led_rt;
-				OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-				std::cout<< "Finding LED Resource... " <<std::endl;
-			}
-
-			if(!lcdResource) {
-				requestURI.str("");
-				requestURI << OC_RSRVD_WELL_KNOWN_URI << lcd_rt;
-				OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-				std::cout<< "Finding LCD Resource... " <<std::endl;
-			}
-
-			if(!buzzerResource) {
-				requestURI.str("");
-				requestURI << OC_RSRVD_WELL_KNOWN_URI << buzzer_rt;
-				OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-				std::cout<< "Finding Buzzer Resource... " <<std::endl;
-			}
-
-			if(!buttonResource) {
-				requestURI.str("");
-				requestURI << OC_RSRVD_WELL_KNOWN_URI << button_rt;
-				OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-				std::cout<< "Finding Button Resource... " <<std::endl;
-			}
-#else
-		while(!sensorResourceA || !ledResourceA) {
-			std::string sensor_rt_a = "?rt=grove.sensor";
-			std::string led_rt_a = "?rt=grove.led";
-			std::string lcd_rt_a = "?rt=grove.lcd";
-
-			// Find all resources
-			if(!sensorResourceA) {
-				requestURI.str("");
-				requestURI << OC_RSRVD_WELL_KNOWN_URI << sensor_rt_a;
-				OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-				std::cout<< "Finding Arduino Sensor Resource... " <<std::endl;
-			}
-
-			if(!ledResourceA) {
-				requestURI.str("");
-				requestURI << OC_RSRVD_WELL_KNOWN_URI << led_rt_a;
-				OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-				std::cout<< "Finding Arduino LED Resource... " <<std::endl;
-			}
-
-			if(!lcdResourceA) {
-				requestURI.str("");
-				requestURI << OC_RSRVD_WELL_KNOWN_URI << lcd_rt_a;
-				OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
-				std::cout<< "Finding Arduino LCD Resource... " <<std::endl;
-			}
-#endif
-			sleep(5);
-		}
-
-
-		double curr_light = mydemo.sensor_light;
-		//double curr_temp = mydemo.sensor_temp;
-		double curr_temp = mydemo.sensor_temp = 100;
-
-		while(true) {
-			if(mydemo.debug_mode) {
-				int cmd, cmd1;
-				std::string str;
-				double buzz_time;
-				print_menu();
-				std::cin >> cmd;
-				switch(cmd) {
-					case 0:
-						break;
-					case 1:
+	while(true) {
+		if(mydemo.debug_mode) {
+			int cmd, cmd1;
+			std::string str;
+			double buzz_time;
+			print_menu();
+			std::cin >> cmd;
+			switch(cmd) {
+				case 0:
+					break;
+				case 1:
+					if(!sensorResource) {
+						std::cout << "Sensor resource not found" << std::endl;
+					} else {
 						sensor_read();
-						break;
-					case 2:
+					}
+					break;
+				case 2:
+					if(!ledResource) {
+						std::cout << "LED resource not found" << std::endl;
+					} else {
 						print_menu_led();
 						std::cin >> cmd1;
 						if(cmd1 >=1 && cmd1 <=6)
@@ -999,74 +1013,95 @@ int main(int argc, char* argv[]) {
 							led_read();
 						else
 							std::cout << "Unknown option: " << cmd1 << std::endl;
-						break;
-					case 3:
+					}
+					break;
+				case 3:
+					if(!lcdResource) {
+						std::cout << "LCD resource not found" << std::endl;
+					} else {
 						print_menu_lcd();
 						std::cin >> str;
 						lcd_write(str);
-						break;
-					case 4:
+					}
+					break;
+				case 4:
+					if(!buzzerResource) {
+						std::cout << "Buzzer resource not found" << std::endl;
+					} else {
 						print_menu_buzzer();
 						std::cin >> buzz_time;
 						buzzer_write(buzz_time);
-						break;
-					case 5:
+					}
+					break;
+				case 5:
+					if(!buttonResource) {
+						std::cout << "Button resource not found" << std::endl;
+					} else {
 						print_menu_button();
 						std::cin >> cmd1;
 						if(cmd1 >= 1 && cmd1 <= 3)
 							std::cout << "Unknown option: " << cmd1 << std::endl;
 						else
 							button_register(cmd1);
-						break;
-					case 6:
+					}
+					break;
+				case 6:
+					if(!sensorResourceA) {
+						std::cout << "Sensor resource not found (Arduino)" << std::endl;
+					} else {
 						sensor_read_a();
-						break;
-					case 7:
+					}
+					break;
+				case 7:
+					if(!ledResourceA) {
+						std::cout << "LED resource not found (Arduino)" << std::endl;
+					} else {
 						print_menu_led_a();
 						std::cin >> cmd1;
 						led_write_a(cmd1);
-						break;
-					case 8:
+					}
+					break;
+				case 8:
+					if(!lcdResourceA) {
+						std::cout << "LCD resource not found (Arduino)" << std::endl;
+					} else {
 						print_menu_lcd();
 						std::cin >> str;
 						lcd_write_a(str);
-						break;
-					default:
-						std::cout << "Unknown option: " << cmd << std::endl;
-						break;
-				}
-			} else {
-				sensor_read();
-				sleep(1.5);
-#if 1
-				if(mydemo.sensor_light < 580 && curr_light >= 580) {
-					std::cout << "Light status change" << std::endl;
-					led_write(3);
-					curr_light = mydemo.sensor_light;
-				} else if(mydemo.sensor_light >= 580 && curr_light < 580) {
-					std::cout << "Light status change" << std::endl;
-					led_write(6);
-					curr_light = mydemo.sensor_light;
-				}
-
-				if(mydemo.sensor_temp < 25 && curr_temp >= 25) {
-					mydemo.led_red = 0;
-					mydemo.led_green = 1;
-					putLedRepresentation(ledResource);
-					curr_temp = mydemo.sensor_temp;
-				} else if(mydemo.sensor_temp >= 25 && curr_temp < 25) {
-					mydemo.led_red = 1;
-					mydemo.led_green = 0;
-					putLedRepresentation(ledResource);
-					curr_temp = mydemo.sensor_temp;
-				}
-#endif
+					}
+					break;
+				default:
+					std::cout << "Unknown option: " << cmd << std::endl;
+					break;
 			}
+		} else {
+			sensor_read();
+			sleep(1.5);
+			
+			if(mydemo.sensor_light < 580 && curr_light >= 580) {
+				std::cout << "Light status change" << std::endl;
+				led_write(3);
+				curr_light = mydemo.sensor_light;
+			} else if(mydemo.sensor_light >= 580 && curr_light < 580) {
+				std::cout << "Light status change" << std::endl;
+				led_write(6);
+				curr_light = mydemo.sensor_light;
+			}
+
+			if(mydemo.sensor_temp < 25 && curr_temp >= 25) {
+				mydemo.led_red = 0;
+				mydemo.led_green = 1;
+				putLedRepresentation(ledResource);
+				curr_temp = mydemo.sensor_temp;
+			} else if(mydemo.sensor_temp >= 25 && curr_temp < 25) {
+				mydemo.led_red = 1;
+				mydemo.led_green = 0;
+				putLedRepresentation(ledResource);
+				curr_temp = mydemo.sensor_temp;
+			}
+
 		}
 	}
-	catch(OCException& e) 
-	{
-		oclog() << "Exception in main: "<<e.what();
-	}
+
 	return 0;
 }

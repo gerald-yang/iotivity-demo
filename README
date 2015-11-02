@@ -88,6 +88,9 @@ On regular PC
     1. Build Iotivity democlient on PC
        ./build_iotivity_pc.sh
 
-    2. Run democlient
+    2. The democlient will write sensor data to InfluxDB through curl, so install it first
+       sudo apt-get install curl
+
+    3. Run democlient
        iotivity-1.0.0/out/linux/${ARCH}/resource/examples/democlient ${InfluxDB_IP_address}
 
