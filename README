@@ -87,3 +87,7 @@ On regular PC
   Build instructions
     1. Build Iotivity democlient on PC
        ./build_iotivity_pc.sh
+
+    2. Run democlient
+       iotivity-1.0.0/out/linux/${ARCH}/resource/examples/democlient ${InfluxDB_IP_address}
+
