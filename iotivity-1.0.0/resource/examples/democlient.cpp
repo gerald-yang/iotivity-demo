@@ -41,7 +41,9 @@ std::shared_ptr<OCResource> ledResourceA;
 std::shared_ptr<OCResource> lcdResource;
 std::shared_ptr<OCResource> lcdResourceA;
 std::shared_ptr<OCResource> buzzerResource;
+std::shared_ptr<OCResource> buzzerResourceA;
 std::shared_ptr<OCResource> buttonResource;
+std::shared_ptr<OCResource> buttonResourceA;
 static ObserveType observe_type = ObserveType::Observe;
 std::mutex curResourceLock;
 
@@ -69,6 +71,9 @@ public:
 	int sensor_sound_a;
 	int led_status_a;
 	std::string lcd_str_a;
+	int tone_a;
+	int button_a;
+	int touch_a;
 
 	Demo() : debug_mode(0),
 		sensor_temp(0.0), sensor_humidity(0.0), sensor_light(0), sensor_sound(0),
@@ -78,7 +83,9 @@ public:
 		button(0),
 		sensor_temp_a(0.0), sensor_light_a(0), sensor_sound_a(0),
 		led_status_a(0),
-		lcd_str_a("Arduino LCD")
+		lcd_str_a("Arduino LCD"),
+		tone_a(0),
+		button_a(0), touch_a(0)
 	{
 	}
 };
@@ -157,6 +164,38 @@ void onObserveButton(const HeaderOptions /*headerOptions*/, const OCRepresentati
 		} else {
 			if(sequenceNumber == OC_OBSERVE_NO_OPTION) {
 				std::cout << "Observe registration or de-registration action is failed" 
+					<< std::endl;
+			} else {
+				std::cout << "onObserveButton Response error: " << eCode << std::endl;
+				std::exit(-1);
+			}
+		}
+	}
+	catch(std::exception& e) {
+		std::cout << "Exception: " << e.what() << " in onObserveButton" << std::endl;
+	}
+}
+
+void onObserveButtonA(const HeaderOptions /*headerOptions*/, const OCRepresentation& rep,
+                    const int& eCode, const int& sequenceNumber)
+{
+	std::cout << "onObserveButtonA" << std::endl;
+	try {
+		if(eCode == OC_STACK_OK && sequenceNumber != OC_OBSERVE_NO_OPTION) {
+			if(sequenceNumber == OC_OBSERVE_REGISTER)
+				std::cout << "Observe registration action is successful (Arduino)" << std::endl;
+			else if(sequenceNumber == OC_OBSERVE_DEREGISTER)
+				std::cout << "Observe De-registration action is successful (Arduino)" << std::endl;
+
+			std::cout << "OBSERVE RESULT:"<<std::endl;
+			std::cout << "\tSequenceNumber: "<< sequenceNumber << std::endl;
+			rep.getValue("button", mydemo.button_a);
+			rep.getValue("touch", mydemo.touch_a);
+			std::cout << "button: " << mydemo.button_a << std::endl;
+			std::cout << "touch: " << mydemo.touch_a << std::endl;
+		} else {
+			if(sequenceNumber == OC_OBSERVE_NO_OPTION) {
+				std::cout << "Observe registration or de-registration action is failed (Arduino)" 
 					<< std::endl;
 			} else {
 				std::cout << "onObserveButton Response error: " << eCode << std::endl;
@@ -353,6 +392,23 @@ void onPutBuzzer(const HeaderOptions& /*headerOptions*/, const OCRepresentation&
 	}
 }
 
+void onPutBuzzerA(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, const int eCode)
+{
+	try {
+		if(eCode == OC_STACK_OK) {
+			std::cout << "Arduino Buzzer PUT request was successful" << std::endl;
+
+			rep.getValue("tone", mydemo.tone_a);
+		} else {
+			std::cout << "onPutBuzzerA Response error: " << eCode << std::endl;
+			std::exit(-1);
+		}
+	}
+	catch(std::exception& e) {
+		std::cout << "Exception: " << e.what() << " in onPutBuzzerA" << std::endl;
+	}
+}
+
 // Local function to put a different state for this resource
 void putLedRepresentation(std::shared_ptr<OCResource> resource)
 {
@@ -426,6 +482,20 @@ void putBuzzerRepresentation(std::shared_ptr<OCResource> resource)
 	}
 }
 
+void putBuzzerRepresentationA(std::shared_ptr<OCResource> resource)
+{
+	if(resource) {
+		OCRepresentation rep;
+
+		std::cout << "Arduino Putting Buzzer representation..."<<std::endl;
+
+		rep.setValue("tone", mydemo.tone_a);
+
+		// Invoke resource's put API with rep, query map and the callback parameter
+		resource->put(rep, QueryParamsMap(), &onPutBuzzerA);
+	}
+}
+
 // Callback handler on GET request
 void onGetSensor(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, const int eCode)
 {
@@ -477,7 +547,7 @@ void onGetSensorA(const HeaderOptions& /*headerOptions*/, const OCRepresentation
 		}
 	}
 	catch(std::exception& e) {
-		std::cout << "Exception: " << e.what() << " in onGetSensor" << std::endl;
+		std::cout << "Exception: " << e.what() << " in onGetSensorA" << std::endl;
 	}
 }
 
@@ -521,7 +591,7 @@ void onGetLedA(const HeaderOptions& /*headerOptions*/, const OCRepresentation& r
 		}
 	}
 	catch(std::exception& e) {
-		std::cout << "Exception: " << e.what() << " in onGetLed" << std::endl;
+		std::cout << "Exception: " << e.what() << " in onGetLedA" << std::endl;
 	}
 }
 
@@ -542,6 +612,28 @@ void onGetButton(const HeaderOptions& /*headerOptions*/, const OCRepresentation&
 	}
 	catch(std::exception& e) {
 		std::cout << "Exception: " << e.what() << " in onGetButton" << std::endl;
+	}
+}
+
+void onGetButtonA(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, const int eCode)
+{
+	try {
+		if(eCode == OC_STACK_OK) {
+			std::cout << "GET request was successful" << std::endl;
+			std::cout << "Resource URI: " << rep.getUri() << std::endl;
+
+			rep.getValue("button", mydemo.button_a);
+			rep.getValue("touch", mydemo.touch_a);
+
+			std::cout << "\tbutton: " << mydemo.button_a << std::endl;
+			std::cout << "\ttouch: " << mydemo.touch_a << std::endl;
+		} else {
+			std::cout << "onGET Response error: " << eCode << std::endl;
+			std::exit(-1);
+		}
+	}
+	catch(std::exception& e) {
+		std::cout << "Exception: " << e.what() << " in onGetButtonA" << std::endl;
 	}
 }
 
@@ -599,6 +691,17 @@ void getButtonRepresentation(std::shared_ptr<OCResource> resource)
 		// Invoke resource's get API with the callback parameter
 		QueryParamsMap test;
 		resource->get(test, &onGetButton);
+	}
+}
+
+void getButtonRepresentationA(std::shared_ptr<OCResource> resource)
+{
+	if(resource) {
+		std::cout << "Getting Arduino Button Representation..."<<std::endl;
+
+		// Invoke resource's get API with the callback parameter
+		QueryParamsMap test;
+		resource->get(test, &onGetButtonA);
 	}
 }
 
@@ -707,12 +810,30 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				}
 			}
 
+			if(resourceURI == "/grove/buzzer") {
+				if(buzzerResource) {
+					std::cout << "Found another Arduino buzzer resource, ignoring" << std::endl;
+				} else {
+					std::cout << "Find Arduino buzzer resource" << std::endl;
+					buzzerResourceA = resource;
+				}
+			}
+
 			if(resourceURI == "/grovepi/button") {
 				if(buttonResource) {
 					std::cout << "Found another button resource, ignoring" << std::endl;
 				} else {
 					std::cout << "Find button resource" << std::endl;
 					buttonResource = resource;
+				}
+			}
+
+			if(resourceURI == "/grove/button") {
+				if(buttonResourceA) {
+					std::cout << "Found another Arduino button resource, ignoring" << std::endl;
+				} else {
+					std::cout << "Find Arduino button resource" << std::endl;
+					buttonResourceA = resource;
 				}
 			}
 
@@ -805,6 +926,12 @@ static void buzzer_write(double b)
 	putBuzzerRepresentation(buzzerResource);
 }
 
+static void buzzer_write_a(int tone)
+{
+	mydemo.tone_a = tone;
+	putBuzzerRepresentationA(buzzerResourceA);
+}
+
 static void button_read()
 {
 	getButtonRepresentation(buttonResource);
@@ -820,18 +947,35 @@ static void button_register(int cmd)
 		button_read();
 }
 
+static void button_read_a()
+{
+	getButtonRepresentationA(buttonResourceA);
+}
+
+static void button_register_a(int cmd)
+{
+	if(cmd == 1)
+		buttonResourceA->observe(observe_type, QueryParamsMap(), &onObserveButtonA);
+	else if(cmd == 2)
+		buttonResourceA->cancelObserve();
+	else
+		button_read_a();
+}
+
 static void print_menu()
 {
 	std::cout << "Demo client menu" << std::endl;
-	std::cout << "0 : Print this menu" << std::endl;
-	std::cout << "1 : Read sensors" << std::endl;
-	std::cout << "2 : Control LEDs" << std::endl;
-	std::cout << "3 : Write string to LCD" << std::endl;
-	std::cout << "4 : Write buzzer" << std::endl;
-	std::cout << "5 : Button control" << std::endl;
-	std::cout << "6 : Read sensors (Arduino)" << std::endl;
-	std::cout << "7 : Write LED (Arduino)" << std::endl;
-	std::cout << "8 : Write string to LCD (Arduino)" << std::endl;
+	std::cout << "0  : Print this menu" << std::endl;
+	std::cout << "1  : Read sensors" << std::endl;
+	std::cout << "2  : Control LEDs" << std::endl;
+	std::cout << "3  : Write string to LCD" << std::endl;
+	std::cout << "4  : Write buzzer" << std::endl;
+	std::cout << "5  : Button control" << std::endl;
+	std::cout << "6  : Read sensors (Arduino)" << std::endl;
+	std::cout << "7  : Write LED (Arduino)" << std::endl;
+	std::cout << "8  : Write string to LCD (Arduino)" << std::endl;
+	std::cout << "9  : Write buzzer (Arduino)" << std::endl;
+	std::cout << "10 : Button control (Arduino)" << std::endl;
 }
 
 static void print_menu_led()
@@ -860,7 +1004,19 @@ static void print_menu_buzzer()
 	std::cout << "Enter how long to beep" << std::endl;
 }
 
+static void print_menu_buzzer_a()
+{
+	std::cout << "Enter tone to beep" << std::endl;
+}
+
 static void print_menu_button()
+{
+	std::cout << "1 : Register button status" << std::endl;
+	std::cout << "2 : De-register button status" << std::endl;
+	std::cout << "3 : Read button status" << std::endl;
+}
+
+static void print_menu_button_a()
 {
 	std::cout << "1 : Register button status" << std::endl;
 	std::cout << "2 : De-register button status" << std::endl;
@@ -882,9 +1038,11 @@ void *find_all_resource(void *)
 	std::string sensor_rt_a = "?rt=grove.sensor";
 	std::string led_rt_a = "?rt=grove.led";
 	std::string lcd_rt_a = "?rt=grove.lcd";
+	std::string buzzer_rt_a = "?rt=grove.buzzer";
+	std::string button_rt_a = "?rt=grove.button";
 
 	while(!sensorResource || !ledResource || !lcdResource || !buzzerResource || !buttonResource
-		|| !sensorResourceA || !ledResourceA || !lcdResourceA) {
+		|| !sensorResourceA || !ledResourceA || !lcdResourceA || !buzzerResourceA || !buttonResourceA) {
 
 		// Find all resources
 		if(!sensorResource) {
@@ -943,6 +1101,20 @@ void *find_all_resource(void *)
 			std::cout<< "Finding Arduino LCD Resource... " <<std::endl;
 		}
 
+		if(!buzzerResourceA) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << buzzer_rt_a;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding Arduino Buzzer Resource... " <<std::endl;
+		}
+
+		if(!buttonResourceA) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << button_rt_a;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout<< "Finding Arduino Button Resource... " <<std::endl;
+		}
+
 		sleep(8);
 	}
 
@@ -989,6 +1161,7 @@ int main(int argc, char* argv[])
 			int cmd, cmd1;
 			std::string str;
 			double buzz_time;
+			int tone;
 			print_menu();
 			std::cin >> cmd;
 			switch(cmd) {
@@ -1039,10 +1212,12 @@ int main(int argc, char* argv[])
 					} else {
 						print_menu_button();
 						std::cin >> cmd1;
-						if(cmd1 >= 1 && cmd1 <= 3)
+						if(cmd1 < 1 && cmd1 > 3)
 							std::cout << "Unknown option: " << cmd1 << std::endl;
-						else
+						else if(cmd1 == 1 || cmd1 == 2)
 							button_register(cmd1);
+						else
+							button_read();
 					}
 					break;
 				case 6:
@@ -1068,6 +1243,29 @@ int main(int argc, char* argv[])
 						print_menu_lcd();
 						std::cin >> str;
 						lcd_write_a(str);
+					}
+					break;
+				case 9:
+					if(!buzzerResourceA) {
+						std::cout << "Buzzer resource not found (Arduino)" << std::endl;
+					} else {
+						print_menu_buzzer_a();
+						std::cin >> tone;
+						buzzer_write_a(tone);
+					}
+					break;
+				case 10:
+					if(!buttonResourceA) {
+						std::cout << "Button resource not found (Arduino)" << std::endl;
+					} else {
+						print_menu_button_a();
+						std::cin >> cmd1;
+						if(cmd1 < 1 && cmd1 > 3)
+							std::cout << "Unknown option: " << cmd1 << std::endl;
+						else if(cmd1 == 1 || cmd1 == 2)
+							button_register_a(cmd1);
+						else
+							button_read_a();
 					}
 					break;
 				default:

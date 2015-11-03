@@ -44,7 +44,7 @@
 
 #include <Wire.h>
 #include <rgb_lcd.h>
-rgb_lcd grove_lcd;
+
 const char *getResult(OCStackResult result);
 
 #define TAG "ArduinoServer"
@@ -81,24 +81,28 @@ typedef struct LCDRESOURCE{
 
 static LcdResource lcd;
 
-/* Structure to represent a button resource */
-typedef struct BUTTONRESOURCE{
-	OCResourceHandle handle;
-	bool button;
-	bool touch;
-} ButtonResource;
-
-static ButtonResource button;
-
 /* Structure to represent a buzzer resource */
 typedef struct BUZZERRESOURCE{
 	OCResourceHandle handle;
-	int status;
+	int tone;
 } BuzzerResource;
 
 static BuzzerResource buzzer;
 
+/* Structure to represent a button resource */
+typedef struct BUTTONRESOURCE{
+	OCResourceHandle handle;
+	int observer;
+	bool button;
+	bool touch;
+	bool button_old;
+	bool touch_old;
+} ButtonResource;
 
+static ButtonResource button;
+
+
+/* Pin configuration */
 const int pinTemp = A0;
 const int B = 3950;
 
@@ -106,6 +110,18 @@ const int pinLight = A2;
 const int pinSound = A1;
 
 const int pinLed    = 7;
+
+rgb_lcd grove_lcd;
+
+int pinBuzzer = 2;
+
+int pinButton = 3;
+
+int pinTouch = 8;
+
+int pinSerno = 7;
+
+
 void sensor_init()
 {
 	pinMode(pinTemp, INPUT);
@@ -137,6 +153,7 @@ void sensor_get()
 void led_init()
 {
 	pinMode(pinLed, OUTPUT);
+	analogWrite(pinLed, led.status);
 }
 
 void led_put()
@@ -184,6 +201,32 @@ void lcd_put()
 	lcd_print(lcd.str);
 }
 
+void buzzer_init()
+{
+	pinMode(pinBuzzer, OUTPUT);
+	digitalWrite(pinBuzzer, LOW);
+}
+
+void buzzer_put()
+{
+	digitalWrite(pinBuzzer, HIGH);
+	delayMicroseconds(buzzer.tone);
+	delay(1000);
+	digitalWrite(pinBuzzer, LOW);
+	delayMicroseconds(buzzer.tone);
+}
+
+void button_init()
+{
+	pinMode(pinButton, INPUT);
+	pinMode(pinTouch, INPUT);
+}
+
+void button_get()
+{
+	button.button = digitalRead(pinButton);
+	button.touch = digitalRead(pinTouch);
+}
 
 #ifdef ARDUINOWIFI
 // Arduino WiFi Shield
@@ -429,6 +472,125 @@ OCEntityHandlerResult LcdOCEntityHandlerCb(OCEntityHandlerFlag flag, OCEntityHan
 	return ehRet;
 }
 
+OCEntityHandlerResult BuzzerOCEntityHandlerCb(OCEntityHandlerFlag flag, OCEntityHandlerRequest * entityHandlerRequest,
+                                        void *callbackParam)
+{
+	OCEntityHandlerResult ehRet = OC_EH_OK;
+	OCEntityHandlerResponse response = {0};
+	OCRepPayload* payload = OCRepPayloadCreate();
+	if(!payload) {
+		OC_LOG(ERROR, TAG, ("Failed to allocate Payload"));
+		return OC_EH_ERROR;
+	}
+
+	if(entityHandlerRequest && (flag & OC_REQUEST_FLAG)) {
+		OC_LOG (INFO, TAG, ("Flag includes OC_REQUEST_FLAG"));
+
+		if(OC_REST_GET == entityHandlerRequest->method) {
+			OCRepPayloadSetUri(payload, "/grove/buzzer");
+			OCRepPayloadSetPropInt(payload, "tone", buzzer.tone);
+		} else if(OC_REST_PUT == entityHandlerRequest->method) {
+			int64_t tone;
+			OC_LOG(INFO, TAG, ("PUT request"));
+			OCRepPayload *rep = (OCRepPayload *)entityHandlerRequest->payload;
+			OCRepPayloadGetPropInt(rep, "tone", &tone);
+			buzzer.tone = (int)tone;
+			OC_LOG_V(INFO, TAG, "Buzzer tone: %d", buzzer.tone);
+			buzzer_put();
+			OCRepPayloadSetPropInt(payload, "tone", buzzer.tone);
+		}
+
+		if (ehRet == OC_EH_OK) {
+			// Format the response.  Note this requires some info about the request
+			response.requestHandle = entityHandlerRequest->requestHandle;
+			response.resourceHandle = entityHandlerRequest->resource;
+			response.ehResult = ehRet;
+			response.payload = (OCPayload*) payload;
+			response.numSendVendorSpecificHeaderOptions = 0;
+			memset(response.sendVendorSpecificHeaderOptions, 0, sizeof response.sendVendorSpecificHeaderOptions);
+			memset(response.resourceUri, 0, sizeof response.resourceUri);
+			// Indicate that response is NOT in a persistent buffer
+			response.persistentBufferFlag = 0;
+
+			// Send the response
+			if (OCDoResponse(&response) != OC_STACK_OK) {
+				OC_LOG(ERROR, TAG, "Error sending response");
+				ehRet = OC_EH_ERROR;
+			}
+		}
+	}
+
+	if (entityHandlerRequest && (flag & OC_OBSERVE_FLAG)) {
+		if (OC_OBSERVE_REGISTER == entityHandlerRequest->obsInfo.action) {
+			OC_LOG (INFO, TAG, ("Received OC_OBSERVE_REGISTER from client"));
+			gLightUnderObservation = 1;
+		} else if (OC_OBSERVE_DEREGISTER == entityHandlerRequest->obsInfo.action) {
+			OC_LOG (INFO, TAG, ("Received OC_OBSERVE_DEREGISTER from client"));
+			gLightUnderObservation = 0;
+		}
+	}
+	OCRepPayloadDestroy(payload);
+	return ehRet;
+}
+
+OCEntityHandlerResult ButtonOCEntityHandlerCb(OCEntityHandlerFlag flag, OCEntityHandlerRequest * entityHandlerRequest,
+                                        void *callbackParam)
+{
+	OCEntityHandlerResult ehRet = OC_EH_OK;
+	OCEntityHandlerResponse response = {0};
+	OCRepPayload* payload = OCRepPayloadCreate();
+	if(!payload) {
+		OC_LOG(ERROR, TAG, ("Failed to allocate Payload"));
+		return OC_EH_ERROR;
+	}
+
+	if(entityHandlerRequest && (flag & OC_REQUEST_FLAG)) {
+		OC_LOG (INFO, TAG, ("Flag includes OC_REQUEST_FLAG"));
+
+		if(OC_REST_GET == entityHandlerRequest->method) {
+			button_get();
+			OCRepPayloadSetUri(payload, "/grove/button");
+			OCRepPayloadSetPropInt(payload, "button", button.button);
+			OCRepPayloadSetPropInt(payload, "touch", button.touch);
+		} else if(OC_REST_PUT == entityHandlerRequest->method) {
+			OC_LOG(ERROR, TAG, ("Un-supported request for Sensor: PUT"));
+		}
+
+		if (ehRet == OC_EH_OK) {
+			// Format the response.  Note this requires some info about the request
+			response.requestHandle = entityHandlerRequest->requestHandle;
+			response.resourceHandle = entityHandlerRequest->resource;
+			response.ehResult = ehRet;
+			response.payload = (OCPayload*) payload;
+			response.numSendVendorSpecificHeaderOptions = 0;
+			memset(response.sendVendorSpecificHeaderOptions, 0, sizeof response.sendVendorSpecificHeaderOptions);
+			memset(response.resourceUri, 0, sizeof response.resourceUri);
+			// Indicate that response is NOT in a persistent buffer
+			response.persistentBufferFlag = 0;
+
+			// Send the response
+			if (OCDoResponse(&response) != OC_STACK_OK) {
+				OC_LOG(ERROR, TAG, "Error sending response");
+				ehRet = OC_EH_ERROR;
+			}
+		}
+	}
+
+	if (entityHandlerRequest && (flag & OC_OBSERVE_FLAG)) {
+		if (OC_OBSERVE_REGISTER == entityHandlerRequest->obsInfo.action) {
+			OC_LOG (INFO, TAG, ("Received OC_OBSERVE_REGISTER from client"));
+			button.observer = 1;
+		} else if (OC_OBSERVE_DEREGISTER == entityHandlerRequest->obsInfo.action) {
+			OC_LOG (INFO, TAG, ("Received OC_OBSERVE_DEREGISTER from client"));
+			button.observer = 0;
+		}
+	}
+	OCRepPayloadDestroy(payload);
+	return ehRet;
+}
+
+
+
 // This method is used to display 'Observe' functionality of OC Stack.
 static uint8_t modCounter = 0;
 void *ChangeLightRepresentation (void *param)
@@ -450,6 +612,24 @@ void *ChangeLightRepresentation (void *param)
 	}
 #endif
     return NULL;
+}
+
+void button_observer()
+{
+	OCStackResult result = OC_STACK_ERROR;
+
+	if(button.observer) {
+		button_get();
+
+		if(button.button != button.button_old || button.touch != button.touch_old) {
+			result = OCNotifyAllObservers(button.handle, OC_NA_QOS);
+			button.button_old = button.button;
+			button.touch_old = button.touch;
+
+			if(result == OC_STACK_NO_OBSERVERS)
+				button.observer = 0;
+		}
+	}
 }
 
 //The setup function is called once at startup of the sketch
@@ -476,6 +656,8 @@ void setup()
 	sensor_init();
 	led_init();
 	lcd_init();
+	buzzer_init();
+	button_init();
 
 	// Declare and create the resource: grove
 	createDemoResource();
@@ -493,7 +675,8 @@ void loop()
 		OC_LOG(ERROR, TAG, ("OCStack process error"));
 		return;
 	}
-	ChangeLightRepresentation(NULL);
+
+	button_observer();
 }
 
 void createDemoResource()
@@ -503,6 +686,14 @@ void createDemoResource()
 	sensor.sound = 0;
 
 	led.status = 0;
+
+	buzzer.tone = 0;
+
+	button.observer = 0;
+	button.button = 0;
+	button.touch = 0;
+	button.button_old = 0;
+	button.touch_old = 0;
 
 	OCStackResult res = OCCreateResource(&sensor.handle,
 		"grove.sensor",
@@ -530,6 +721,24 @@ void createDemoResource()
 		NULL,
 		OC_DISCOVERABLE|OC_OBSERVABLE);
 	OC_LOG_V(INFO, TAG, "Created LCD resource with result: %s", getResult(res));
+
+	res = OCCreateResource(&buzzer.handle,
+		"grove.buzzer",
+		OC_RSRVD_INTERFACE_DEFAULT,
+		"/grove/buzzer",
+		BuzzerOCEntityHandlerCb,
+		NULL,
+		OC_DISCOVERABLE|OC_OBSERVABLE);
+	OC_LOG_V(INFO, TAG, "Created buzzer resource with result: %s", getResult(res));
+
+	res = OCCreateResource(&button.handle,
+		"grove.button",
+		OC_RSRVD_INTERFACE_DEFAULT,
+		"/grove/button",
+		ButtonOCEntityHandlerCb,
+		NULL,
+		OC_DISCOVERABLE|OC_OBSERVABLE);
+	OC_LOG_V(INFO, TAG, "Created button resource with result: %s", getResult(res));
 }
 
 const char *getResult(OCStackResult result) {
