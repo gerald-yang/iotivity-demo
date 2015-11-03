@@ -943,7 +943,7 @@ void *find_all_resource(void *)
 			std::cout<< "Finding Arduino LCD Resource... " <<std::endl;
 		}
 
-		sleep(5);
+		sleep(8);
 	}
 
 	return NULL;
