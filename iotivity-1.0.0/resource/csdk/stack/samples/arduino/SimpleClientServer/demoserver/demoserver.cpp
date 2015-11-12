@@ -163,18 +163,25 @@ void led_put()
 
 void lcd_print(char *str)
 {
-	int len = strlen(str);
-	char line[16];
+	int len1 = strlen(str);
+	int len2 = 0;
+	char line1[17] = "                ";
+	char line2[17] = "                ";
 
-	strncpy(line, str, 16);
+	if(len1 > 32)
+		len2 = 16;
+	else if(len1 > 16)
+		len2 = len1 - 16;
+
+	strncpy(line1, str, len1);
 	grove_lcd.setCursor(0, 0);
-	grove_lcd.print(line);
+	grove_lcd.print(line1);
 
-	if(len > 16) {
-		strncpy(line, str+16, 16);
-		grove_lcd.setCursor(0, 1);
-		grove_lcd.print(line);
+	if(len2) {
+		strncpy(line2, str+16, len2);
 	}
+	grove_lcd.setCursor(0, 1);
+	grove_lcd.print(line2);
 	
 }
 
@@ -311,7 +318,7 @@ OCEntityHandlerResult SensorOCEntityHandlerCb(OCEntityHandlerFlag flag, OCEntity
 		OC_LOG (INFO, TAG, ("Flag includes OC_REQUEST_FLAG"));
 
 		if(OC_REST_GET == entityHandlerRequest->method) {
-			sensor_get();
+			//sensor_get();
 			OCRepPayloadSetUri(payload, "/grove/sensor");
 			OCRepPayloadSetPropDouble(payload, "temperature", sensor.temp);
 			OCRepPayloadSetPropInt(payload, "light", sensor.light);
@@ -668,7 +675,7 @@ void loop()
 {
 	// This artificial delay is kept here to avoid endless spinning
 	// of Arduino microcontroller. Modify it as per specific application needs.
-	delay(2000);
+	delay(600);
 
 	// Give CPU cycles to OCStack to perform send/recv and other OCStack stuff
 	if (OCProcess() != OC_STACK_OK) {
@@ -676,6 +683,7 @@ void loop()
 		return;
 	}
 
+	sensor_get();
 	button_observer();
 }
 
