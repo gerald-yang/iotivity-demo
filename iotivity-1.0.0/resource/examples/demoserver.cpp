@@ -22,9 +22,10 @@ using namespace std;
 namespace PH = std::placeholders;
 
 int gObservation = 0;
-void * CheckButtonRepresentation(void *param);
+void CheckButtonRepresentation(void *param);
 void * grovepi_thread(void *param);
 queue <void (*)(void *)> write_queue;
+mutex led_write_lock;
 void t_write_led_red(void *);
 void t_write_led_green(void *);
 void t_write_led_blue(void *);
@@ -232,6 +233,8 @@ public:
 		// Finish the Python Interpreter
 		Py_Finalize();
 
+		sync();
+		usleep(200);
 		py_unlock();
 	}
 
@@ -331,6 +334,7 @@ public:
 	double sensor_read_temp()
 	{
 		PyObject *p_result;
+
 		p_result = py_func((char *)"sensor_read_temp");
 
 		if(p_result)
@@ -505,26 +509,31 @@ public:
 	void put_led(OCRepresentation& rep)
 	{
 		try {
+			led_write_lock.lock();
 			if (rep.getValue("red", led_red)) {
 				//cout << "\t\t\t\t" << "Red LED: " << led_red << endl;
-				write_queue.push(t_write_led_red);
+				//write_queue.push(t_write_led_red);
+				t_write_led_red(this);
 			} else {
 				cout << "red not found in the representation" << endl;
 			}
 
 			if (rep.getValue("green", led_green)) {
 				//cout << "\t\t\t\t" << "Green LED: " << led_green << endl;
-				write_queue.push(t_write_led_green);
+				//write_queue.push(t_write_led_green);
+				t_write_led_green(this);
 			} else {
 				cout << "green not found in the representation" << endl;
 			}
 
 			if (rep.getValue("blue", led_blue)) {
 				//cout << "\t\t\t\t" << "Blue LED: " << led_blue << endl;
-				write_queue.push(t_write_led_blue);
+				//write_queue.push(t_write_led_blue);
+				t_write_led_blue(this);
 			} else {
 				cout << "blue not found in the representation" << endl;
 			}
+			led_write_lock.unlock();
 		}
 		catch (exception& e) {
 			cout << e.what() << endl;
@@ -1020,20 +1029,9 @@ private:
 							m_interestedObservers.end());
 				}
 
-				pthread_t threadId;
-
 				cout << "\trequestFlag : Observer\n";
 				gObservation = 1;
 
-				static int startedThread = 0;
-
-				// Start a thread to check button status
-				// If we have not created the thread already, we will create one here.
-
-				if(!startedThread) {
-					pthread_create (&threadId, NULL, CheckButtonRepresentation, (void *)this);
-					startedThread = 1;
-				}
 				ehResult = OC_EH_OK;
 			}
 		} else {
@@ -1125,7 +1123,7 @@ void t_write_led_blue(void *param)
 
 void * grovepi_thread(void *param)
 {
-	void (*w_func)(void *);
+	//void (*w_func)(void *);
 	list <void (*)(void *)> read_func;
 	list <void (*)(void *)>::iterator iter_f;
 
@@ -1133,22 +1131,28 @@ void * grovepi_thread(void *param)
 	read_func.push_back(t_read_humidity);
 	read_func.push_back(t_read_light);
 	read_func.push_back(t_read_sound);
+	read_func.push_back(CheckButtonRepresentation);
 	iter_f = read_func.begin();
 
 	//cout << "Function pointer list size: " << read_func.size() << endl;	
 
 	while(1) {
-		if(write_queue.empty()) {
-			(*iter_f)(param);
-			iter_f++;
-			
-			if(iter_f == read_func.end())
-					iter_f = read_func.begin();
-		} else {
+#if 0
+		led_write_lock.lock();
+		if(!write_queue.empty()) {
 			w_func = write_queue.front();
 			w_func(param);
 			write_queue.pop();
 		}
+		led_write_lock.unlock();
+#endif
+
+		(*iter_f)(param);
+		iter_f++;
+			
+		if(iter_f == read_func.end())
+			iter_f = read_func.begin();
+		usleep(200);
 	}
 
 	return NULL;
@@ -1158,55 +1162,48 @@ void * grovepi_thread(void *param)
 // CheckButtonRepresentaion is an observation function,
 // which notifies any changes to the resource to stack
 // via notifyObservers if button is pressed or released
-void * CheckButtonRepresentation (void *param)
+void CheckButtonRepresentation (void *param)
 {
 	DemoResource *pdemo = (DemoResource*) param;
 	int status;
 
-	// This function continuously monitors for the changes
-	while (1) {
-		sleep (2);
+	if (gObservation) {
+		// If under observation if there are any changes to the button resource
+		// we call notifyObservors
+		
+		status = pdemo->button_read();
+		if(status == -1) {
+			cout << "Button status read failed" << endl;
+		}
 
-		if (gObservation) {
-			// If under observation if there are any changes to the button resource
-			// we call notifyObservors
-			
-			status = pdemo->button_read();
-			if(status == -1) {
-				cout << "Button status read failed" << endl;
+		cout << "\nButton status: " << status << endl;
+		cout << "Current button status: " << pdemo->button << endl;
+
+		if(pdemo->button != status) {
+			pdemo->button = status;
+			cout << "Notifying observers with resource handle: " << pdemo->button_resourceHandle << endl;
+
+			OCStackResult result = OC_STACK_OK;
+
+			if(isListOfObservers) {
+				std::shared_ptr<OCResourceResponse> resourceResponse =
+					{std::make_shared<OCResourceResponse>()};
+
+				resourceResponse->setErrorCode(200);
+				resourceResponse->setResourceRepresentation(pdemo->get_button(), DEFAULT_INTERFACE);
+
+				result = OCPlatform::notifyListOfObservers(pdemo->button_resourceHandle,
+					pdemo->m_interestedObservers, resourceResponse);
+			} else {
+				result = OCPlatform::notifyAllObservers(pdemo->button_resourceHandle);
 			}
 
-			cout << "\nButton status: " << status << endl;
-			cout << "Current button status: " << pdemo->button << endl;
-
-			if(pdemo->button != status) {
-				pdemo->button = status;
-				cout << "Notifying observers with resource handle: " << pdemo->button_resourceHandle << endl;
-
-				OCStackResult result = OC_STACK_OK;
-
-				if(isListOfObservers) {
-					std::shared_ptr<OCResourceResponse> resourceResponse =
-						{std::make_shared<OCResourceResponse>()};
-
-					resourceResponse->setErrorCode(200);
-					resourceResponse->setResourceRepresentation(pdemo->get_button(), DEFAULT_INTERFACE);
-
-					result = OCPlatform::notifyListOfObservers(pdemo->button_resourceHandle,
-						pdemo->m_interestedObservers, resourceResponse);
-				} else {
-					result = OCPlatform::notifyAllObservers(pdemo->button_resourceHandle);
-				}
-
-				if(OC_STACK_NO_OBSERVERS == result) {
-					cout << "No More observers, stopping notifications" << endl;
-					gObservation = 0;
-				}
+			if(OC_STACK_NO_OBSERVERS == result) {
+				cout << "No More observers, stopping notifications" << endl;
+				gObservation = 0;
 			}
 		}
 	}
-
-	return NULL;
 }
 
 void * handleSlowResponse (void *param, std::shared_ptr<OCResourceRequest> pRequest)
