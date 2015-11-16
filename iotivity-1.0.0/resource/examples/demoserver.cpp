@@ -1020,18 +1020,20 @@ private:
 				ObservationInfo observationInfo = request->getObservationInfo();
 
 				if(ObserveAction::ObserveRegister == observationInfo.action) {
+					cout << "Register observer" << endl;
 					m_interestedObservers.push_back(observationInfo.obsId);
+					gObservation = 1;
 				} else if(ObserveAction::ObserveUnregister == observationInfo.action) {
+					cout << "Un-register observer" << endl;
 					m_interestedObservers.erase(std::remove(
 							m_interestedObservers.begin(),
 							m_interestedObservers.end(),
 							observationInfo.obsId),
 							m_interestedObservers.end());
+					gObservation = 0;
 				}
 
 				cout << "\trequestFlag : Observer\n";
-				gObservation = 1;
-
 				ehResult = OC_EH_OK;
 			}
 		} else {
