@@ -47,6 +47,7 @@ def sensor_read_temp():
         temp = 0.01
         hum = 0.01
         [ temp,hum ] = grovepi.dht(dht11_sensor_port,0)
+        time.sleep(.5)
         #print temp
         return temp
                 
@@ -54,52 +55,37 @@ def sensor_read_humidity():
         temp = 0.01
         hum = 0.01
         [ temp,hum ] = grovepi.dht(dht11_sensor_port,0)
+        time.sleep(.5)
         #print hum
         return hum
 
 def sensor_read_light():
         grovepi.pinMode(light_sensor,"INPUT")
         sensor_value = grovepi.analogRead(light_sensor)
+        time.sleep(.5)
         return sensor_value
 
 def sensor_read_sound():
 	grovepi.pinMode(sound_sensor,"INPUT")
         sensor_value = grovepi.analogRead(sound_sensor)
+        time.sleep(.5)
         return sensor_value
-
-def led_read_red():
-        grovepi.pinMode(led_red,"INPUT")
-        #time.sleep(1)
-        status = grovepi.digitalRead(led_red)
-        return status
-
-def led_read_green():
-        grovepi.pinMode(led_green,"INPUT")
-        #time.sleep(1)
-        status = grovepi.digitalRead(led_green)
-        return status
-
-def led_read_blue():
-        grovepi.pinMode(led_blue,"INPUT")
-        #time.sleep(1)
-        status = grovepi.digitalRead(led_blue)
-        return status
 
 def led_write_red(value):
         grovepi.pinMode(led_red,"OUTPUT")
-        #time.sleep(1)
+        time.sleep(1)
         grovepi.digitalWrite(led_red, value)
 	return 0
 
 def led_write_green(value):
         grovepi.pinMode(led_green,"OUTPUT")
-        #time.sleep(1)
+        time.sleep(1)
         grovepi.digitalWrite(led_green, value)
 	return 0
 
 def led_write_blue(value):
         grovepi.pinMode(led_blue,"OUTPUT")
-        #time.sleep(1)
+        time.sleep(1)
         grovepi.digitalWrite(led_blue, value)
 	return 0
 
@@ -107,7 +93,8 @@ def lcd_write_str(value):
 	#print "Write string: "
 	#print value
 	grove_rgb_lcd.setRGB(0, 255, 0)
-	grove_rgb_lcd.setText(value)
+        time.sleep(.5)
+	#rove_rgb_lcd.setText(value)
 	return 0
 
 def buzzer_write(value):
@@ -116,8 +103,10 @@ def buzzer_write(value):
         grovepi.digitalWrite(buzzer,1)
         time.sleep(value)
         grovepi.digitalWrite(buzzer,0)
+        time.sleep(.5)
 
 def button_read():
         grovepi.pinMode(button,"INPUT")
         status = grovepi.digitalRead(button)
+        time.sleep(.5)
         return status
