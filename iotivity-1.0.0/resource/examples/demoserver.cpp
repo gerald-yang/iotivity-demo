@@ -1,18 +1,17 @@
-#include <Python.h>
+#include <queue>
+#include <list>
+#include <functional>
+
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-
-#include <queue>
-#include <list>
-
-#include <functional>
-
 #include <pthread.h>
 #include <mutex>
 #include <condition_variable>
+#include <signal.h>
+#include <netinet/in.h>
 
 #include "OCPlatform.h"
 #include "OCApi.h"
@@ -75,13 +74,18 @@ public:
 	OCResourceHandle button_resourceHandle;
 	OCRepresentation button_rep;
 
+	int ultrasonic;
+	OCResourceHandle ultrasonic_resourceHandle;
+	OCRepresentation ultrasonic_rep;
+
 
 	ObservationIds m_interestedObservers;
 
 	//std::string py_path = "/home/u/demo/iotivity/extlibs/GrovePi/Software/Python";
 
 private:
-	mutex py_func_lock;
+	int sockfd;
+#define PACKET_LEN  64
 
 public:
 	DemoResource()
@@ -95,7 +99,9 @@ public:
 		buzzer(0.0),
 		buzzer_resourceHandle(nullptr),
 		button(0),
-	       	button_resourceHandle(nullptr)
+	       	button_resourceHandle(nullptr),
+		ultrasonic(0),
+		ultrasonic_resourceHandle(nullptr)
 	{
 		// Initialize representation
 		sensor_rep.setUri("/grovepi/sensor");
@@ -118,6 +124,9 @@ public:
 		led_rep.setUri("/grovepi/button");
 		led_rep.setValue("button", button);
 
+		ultrasonic_rep.setUri("/grovepi/ultrasonic");
+		ultrasonic_rep.setValue("ultrasonic", ultrasonic);
+
 		//setenv("PYTHONPATH", py_path.c_str(), 1);
 	}
 
@@ -128,8 +137,8 @@ public:
 	void createResource()
 	{
 		// Sensor resource
-		std::string resourceURI = "/grovepi/sensor";
-		std::string resourceTypeName = "grovepi.sensor";
+		std::string resourceURI;
+		std::string resourceTypeName;
 		std::string resourceInterface = DEFAULT_INTERFACE;
 
 		// OCResourceProperty is defined ocstack.h
@@ -145,8 +154,11 @@ public:
 		EntityHandler lcd_cb = std::bind(&DemoResource::lcd_entityHandler, this,PH::_1);
 		EntityHandler buzzer_cb = std::bind(&DemoResource::buzzer_entityHandler, this,PH::_1);
 		EntityHandler button_cb = std::bind(&DemoResource::button_entityHandler, this,PH::_1);
+		EntityHandler ultrasonic_cb = std::bind(&DemoResource::ultrasonic_entityHandler, this,PH::_1);
 
 		// This will internally create and register the resource.
+		resourceURI = "/grovepi/sensor";
+		resourceTypeName = "grovepi.sensor";
 		OCStackResult result = OCPlatform::registerResource(
 			sensor_resourceHandle, resourceURI, resourceTypeName,
 			resourceInterface, sensor_cb, resourceProperty);
@@ -193,6 +205,277 @@ public:
 
 		if (OC_STACK_OK != result)
 			cout << "Button resource creation was unsuccessful\n";
+
+		// Create Ultrasonic resource
+		resourceURI = "/grovepi/ultrasonic";
+		resourceTypeName = "grovepi.ultrasonic";
+		result = OCPlatform::registerResource(
+			button_resourceHandle, resourceURI, resourceTypeName,
+			resourceInterface, ultrasonic_cb, resourceProperty);
+
+		if (OC_STACK_OK != result)
+			cout << "Ultrasonic resource creation was unsuccessful\n";
+	}
+
+	int python_server_connect()
+	{
+		int portno = 5566;
+		struct sockaddr_in serv_addr;
+		int result = 0;
+		int timeout = 20;
+
+		serv_addr.sin_family = AF_INET;
+		serv_addr.sin_port = htons(portno);
+		serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+		sockfd = socket(AF_INET, SOCK_STREAM, 0);
+		if (sockfd < 0) {
+			std::cout << "ERROR: can not open socket" << std::endl;
+			return -1;
+		}
+
+		while(timeout--) {
+			result = connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
+			if (result < 0) {
+				std::cout << "Retry to connect to python server" << std::endl;
+			} else {
+				std::cout << "Connection has been built" << std::endl;
+				break;
+			}
+
+			sleep(1);
+		}
+
+		if(result < 0) {
+			std::cout << "ERROR: timeout, can not connect to python server" << std::endl;
+			return -1;
+		}
+
+		return 0;
+	}
+
+	int python_server_read(const char *name, double *value)
+	{
+		int n;
+		char wdata[PACKET_LEN] = {0};
+		char data[PACKET_LEN] = {0};
+
+		sprintf(wdata, "%32s", name);
+		//std::cout << "data: " << wdata << std::endl;
+		n = write(sockfd, wdata, PACKET_LEN);
+
+		n = read(sockfd, data, PACKET_LEN);
+		if(n < 0) {
+			std::cout << "Read from server failed" << std::endl;
+			return 0;
+		} else {
+			//std::cout <<"Read data: " << data << std::endl;
+			*value = std::stod(data);
+			return 1;
+		}
+	}
+
+	int python_server_read(const char *name, int *value)
+	{
+		int n;
+		char wdata[PACKET_LEN] = {0};
+		char data[PACKET_LEN] = {0};
+
+		sprintf(wdata, "%32s", name);
+		n = write(sockfd, wdata, PACKET_LEN);
+
+		n = read(sockfd, data, PACKET_LEN);
+		if(n < 0) {
+			std::cout << "Read from server failed" << std::endl;
+			return 0;
+		} else {
+			//std::cout << data << std::endl;
+			*value = std::stoi(data);
+			return 1;
+		}
+	}
+
+	int python_server_write(const char *name, double value)
+	{
+		int n;
+		char wdata[PACKET_LEN] = {0};
+
+		sprintf(wdata, "%32s%d", name, (int)value);
+
+		//std::cout << "data: "<< wdata << std::endl;
+		n = write(sockfd, wdata, PACKET_LEN);
+		if(n < 0) {
+			std::cout << "Write to server failed" << std::endl;
+			return -1;
+		} else {
+			return 0;
+		} 
+	}
+
+	int python_server_write(const char *name, int value)
+	{
+		int n;
+		char wdata[PACKET_LEN] = {0};
+
+		sprintf(wdata, "%32s%d", name, value);
+
+		//std::cout << "data: "<< wdata << std::endl;
+		n = write(sockfd, wdata, PACKET_LEN);
+		if(n < 0) {
+			std::cout << "Write to server failed" << std::endl;
+			return -1;
+		} else {
+			return 0;
+		} 
+	}
+
+	int python_server_write(const char *name, const char *str)
+	{
+		int n;
+		char wdata[PACKET_LEN+1] = {0};
+
+		sprintf(wdata, "%32s%-32s", name, str);
+
+		//std::cout << "data: "<< wdata << std::endl;
+		n = write(sockfd, wdata, PACKET_LEN);
+		if(n < 0) {
+			std::cout << "Write to server failed" << std::endl;
+			return -1;
+		} else {
+			return 0;
+		} 
+	}
+
+	double sensor_read_temp()
+	{
+		const char *name = "sensor_temp";
+		double temp;
+
+		if(python_server_read(name, &temp)) {
+			return temp;
+		} else {
+			return -1;
+		}
+	}
+
+	double sensor_read_humidity()
+	{
+		const char *name = "sensor_humidity";
+		double humidity;
+
+		if(python_server_read(name, &humidity)) {
+			return humidity;
+		} else {
+			return -1;
+		}
+	}
+
+	int sensor_read_light()
+	{
+		const char *name = "sensor_light";
+		int light;
+
+		if(python_server_read(name, &light)) {
+			return light;
+		} else {
+			return -1;
+		}
+	}
+
+	int sensor_read_sound()
+	{
+		const char *name = "sensor_sound";
+		int sound;
+
+		if(python_server_read(name, &sound)) {
+			return sound;
+		} else {
+			return -1;
+		}
+	}
+
+	int led_write_red(int status)
+	{
+		const char *name = "led_write_red";
+
+		if(python_server_write(name, status)) {
+			return 0;
+		} else {
+			return -1;
+		}
+	}
+
+	int led_write_green(int status)
+	{
+		const char *name = "led_write_green";
+
+		if(python_server_write(name, status)) {
+			return 0;
+		} else {
+			return -1;
+		}
+	}
+
+	int led_write_blue(int status)
+	{
+		const char *name = "led_write_blue";
+
+		if(python_server_write(name, status)) {
+			return 0;
+		} else {
+			return -1;
+		}
+	}
+
+	int lcd_write_str(const char *str)
+	{
+		const char *name = "lcd_write";
+
+		if(strlen(str) > 32) {
+			std::cout << "Error: LCD only has 32 chars" << std::endl;
+			return -1;
+		}
+
+		if(python_server_write(name, str)) {
+			return 0;
+		} else {
+			return -1;
+		}
+	}
+
+	int buzzer_write(double value)
+	{
+		const char *name = "buzzer_write";
+
+		if(python_server_write(name, value)) {
+			return 0;
+		} else {
+			return -1;
+		}
+	}
+
+	int button_read()
+	{
+		const char *name = "button_read";
+		int button;
+
+		if(python_server_read(name, &button)) {
+			return button;
+		} else {
+			return -1;
+		}
+	}
+
+	int ultrasonic_read()
+	{
+		const char *name = "ultrasonic_read";
+		int ultrasonic;
+
+		if(python_server_read(name, &ultrasonic)) {
+			return ultrasonic;
+		} else {
+			return -1;
+		}
 	}
 
 	void start_update_thread()
@@ -201,254 +484,6 @@ public:
 
 		std::cout << "Start update thread" << std::endl;
 		pthread_create (&tid, NULL, grovepi_thread, (void *)this);
-	}
-
-	void py_prolog(PyObject **filename, PyObject **module, PyObject **dict, PyObject **func, char *func_name)
-	{
-		py_lock();
-
-		// Initialize the Python Interpreter
-		Py_Initialize();
-		PyErr_Print();
-		// Build the name object
-		*filename = PyString_FromString((char *)"grovepilib");
-		PyErr_Print();
-		// Load the module object
-		*module = PyImport_Import(*filename);
-		PyErr_Print();
-		// dict is a borrowed reference 
-		*dict = PyModule_GetDict(*module);
-		PyErr_Print();
-
-		*func = PyDict_GetItemString(*dict, func_name);
-		PyErr_Print();
-	}
-
-	void py_epilog(PyObject **filename, PyObject **module, PyObject **dict, PyObject **func)
-	{
-		Py_DECREF(*filename);
-		Py_DECREF(*module);
-		Py_DECREF(*dict);
-		Py_DECREF(*func);
-		// Finish the Python Interpreter
-		Py_Finalize();
-
-		sync();
-		usleep(200);
-		py_unlock();
-	}
-
-	void py_lock()
-	{
-		py_func_lock.lock();
-	}
-
-	void py_unlock()
-	{
-		py_func_lock.unlock();
-	}
-
-	PyObject* py_func(char *func_name)
-	{
-		PyObject *p_filename, *p_module, *p_dict, *p_func, *p_result = NULL;
-
-		py_prolog(&p_filename, &p_module, &p_dict, &p_func, func_name);
-	
-		if(PyCallable_Check(p_func)) {
-			//std::cout << "Access grovepi library" << std::endl;
-			p_result = PyObject_CallObject(p_func, NULL);
-			PyErr_Print();
-		} else {
-			std::cout << "Can not access Grovepi library" << std::endl;
-			PyErr_Print();
-		}
-
-		py_epilog(&p_filename, &p_module, &p_dict, &p_func);
-
-		return p_result;
-	}
-
-	PyObject* py_func(char *func_name, int value)
-	{
-		PyObject *p_filename, *p_module, *p_dict, *p_func, *p_value, *p_result = NULL;
-
-		py_prolog(&p_filename, &p_module, &p_dict, &p_func, func_name);
-	
-		if(PyCallable_Check(p_func)) {
-			//std::cout << "Access grovepi library" << std::endl;
-			p_value = Py_BuildValue("(i)", value);
-			p_result = PyObject_CallObject(p_func, p_value);
-			PyErr_Print();
-		} else {
-			std::cout << "Can not access Grovepi library" << std::endl;
-			PyErr_Print();
-		}
-
-		py_epilog(&p_filename, &p_module, &p_dict, &p_func);
-
-		return p_result;
-	}
-
-	PyObject* py_func(char *func_name, double value)
-	{
-		PyObject *p_filename, *p_module, *p_dict, *p_func, *p_value, *p_result = NULL;
-
-		py_prolog(&p_filename, &p_module, &p_dict, &p_func, func_name);
-	
-		if(PyCallable_Check(p_func)) {
-			//std::cout << "Access grovepi library" << std::endl;
-			p_value = Py_BuildValue("(d)", value);
-			p_result = PyObject_CallObject(p_func, p_value);
-			PyErr_Print();
-		} else {
-			std::cout << "Can not access Grovepi library" << std::endl;
-			PyErr_Print();
-		}
-
-		py_epilog(&p_filename, &p_module, &p_dict, &p_func);
-
-		return p_result;
-	}
-
-	PyObject* py_func(char *func_name, const char *str)
-	{
-		PyObject *p_filename, *p_module, *p_dict, *p_func, *p_value, *p_result = NULL;
-
-		py_prolog(&p_filename, &p_module, &p_dict, &p_func, func_name);
-	
-		if(PyCallable_Check(p_func)) {
-			//std::cout << "Access grovepi library" << std::endl;
-			p_value = Py_BuildValue("(s)", str);
-			p_result = PyObject_CallObject(p_func, p_value);
-			PyErr_Print();
-		} else {
-			std::cout << "Can not access Grovepi library" << std::endl;
-			PyErr_Print();
-		}
-
-		py_epilog(&p_filename, &p_module, &p_dict, &p_func);
-
-		return p_result;
-	}
-
-	double sensor_read_temp()
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"sensor_read_temp");
-
-		if(p_result)
-			return PyFloat_AsDouble(p_result);
-		else
-			return -256;
-	}
-
-	double sensor_read_humidity()
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"sensor_read_humidity");
-
-		if(p_result)
-			return PyFloat_AsDouble(p_result);
-		else
-			return -1;
-	}
-
-	int sensor_read_light()
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"sensor_read_light");
-
-		if(p_result)
-			return PyInt_AsLong(p_result);
-		else
-			return -1;
-	}
-
-	int sensor_read_sound()
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"sensor_read_sound");
-
-		if(p_result)
-			return PyInt_AsLong(p_result);
-		else
-			return -1;
-	}
-
-	int led_write_red(int status)
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"led_write_red", status);
-
-		if(p_result)
-			return 0;
-		else
-			return -1;
-	}
-
-	int led_write_green(int status)
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"led_write_green", status);
-
-		if(p_result)
-			return 0;
-		else
-			return -1;
-	}
-
-	int led_write_blue(int status)
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"led_write_blue", status);
-
-		if(p_result)
-			return 0;
-		else
-			return -1;
-	}
-
-	int lcd_write_str(const char *str)
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"lcd_write_str", str);
-
-		if(p_result)
-			return 0;
-		else
-			return -1;
-	}
-
-	int buzzer_write(double value)
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"buzzer_write", value);
-
-		if(p_result)
-			return 0;
-		else
-			return -1;
-	}
-
-	int button_read()
-	{
-		PyObject *p_result;
-
-		p_result = py_func((char *)"button_read");
-
-		if(p_result)
-			return PyInt_AsLong(p_result);
-		else
-			return -1;
 	}
 
 	int update_ip()
@@ -511,25 +546,25 @@ public:
 		try {
 			led_write_lock.lock();
 			if (rep.getValue("red", led_red)) {
-				//cout << "\t\t\t\t" << "Red LED: " << led_red << endl;
-				//write_queue.push(t_write_led_red);
-				t_write_led_red(this);
+				cout << "\t\t\t\t" << "Red LED: " << led_red << endl;
+				write_queue.push(t_write_led_red);
+				//t_write_led_red(this);
 			} else {
 				cout << "red not found in the representation" << endl;
 			}
 
 			if (rep.getValue("green", led_green)) {
 				//cout << "\t\t\t\t" << "Green LED: " << led_green << endl;
-				//write_queue.push(t_write_led_green);
-				t_write_led_green(this);
+				write_queue.push(t_write_led_green);
+				//t_write_led_green(this);
 			} else {
 				cout << "green not found in the representation" << endl;
 			}
 
 			if (rep.getValue("blue", led_blue)) {
 				//cout << "\t\t\t\t" << "Blue LED: " << led_blue << endl;
-				//write_queue.push(t_write_led_blue);
-				t_write_led_blue(this);
+				write_queue.push(t_write_led_blue);
+				//t_write_led_blue(this);
 			} else {
 				cout << "blue not found in the representation" << endl;
 			}
@@ -635,6 +670,12 @@ public:
 	{
 		button_rep.setValue("button", button);
 		return button_rep;
+	}
+
+	OCRepresentation get_ultrasonic()
+	{
+		ultrasonic_rep.setValue("ultrasonic", ultrasonic);
+		return ultrasonic_rep;
 	}
 
 #if 0
@@ -1043,6 +1084,78 @@ private:
 		return ehResult;
 	}
 
+	OCEntityHandlerResult ultrasonic_entityHandler(std::shared_ptr<OCResourceRequest> request)
+	{
+		cout << "In Server button entity handler:\n";
+		OCEntityHandlerResult ehResult = OC_EH_ERROR;
+
+		if(request) {
+			// Get the request type and request flag
+			std::string requestType = request->getRequestType();
+			int requestFlag = request->getRequestHandlerFlag();
+
+			if(requestFlag & RequestHandlerFlag::RequestFlag) {
+				//cout << "\t\trequestFlag : Request\n";
+				auto pResponse = std::make_shared<OC::OCResourceResponse>();
+				pResponse->setRequestHandle(request->getRequestHandle());
+				pResponse->setResourceHandle(request->getResourceHandle());
+
+				// Check for query params (if any)
+				QueryParamsMap queries = request->getQueryParameters();
+
+				if (!queries.empty()) {
+					std::cout << "\nQuery processing upto entityHandler" << std::endl;
+				}
+
+				for (auto it : queries) {
+					std::cout << "Query key: " << it.first << " value : " << it.second << std:: endl;
+				}
+
+				if(requestType == "GET") {
+					cout << "\trequestType : GET\n";
+					pResponse->setErrorCode(200);
+					pResponse->setResponseResult(OC_EH_OK);
+					pResponse->setResourceRepresentation(get_ultrasonic());
+					if(OC_STACK_OK == OCPlatform::sendResponse(pResponse)) {
+						ehResult = OC_EH_OK;
+					}
+				} else if(requestType == "PUT") {
+					cout << "\trequestType : PUT\n";
+				} else if(requestType == "POST") {
+					cout << "\trequestType : POST\n";
+				} else if(requestType == "DELETE") {
+					cout << "\tDelete request received" << endl;
+				}
+			}
+
+			if(requestFlag & RequestHandlerFlag::ObserverFlag) {
+				ObservationInfo observationInfo = request->getObservationInfo();
+
+				if(ObserveAction::ObserveRegister == observationInfo.action) {
+					cout << "Register observer" << endl;
+					m_interestedObservers.push_back(observationInfo.obsId);
+					gObservation = 1;
+				} else if(ObserveAction::ObserveUnregister == observationInfo.action) {
+					cout << "Un-register observer" << endl;
+					m_interestedObservers.erase(std::remove(
+							m_interestedObservers.begin(),
+							m_interestedObservers.end(),
+							observationInfo.obsId),
+							m_interestedObservers.end());
+					gObservation = 0;
+				}
+
+				cout << "\trequestFlag : Observer\n";
+				ehResult = OC_EH_OK;
+			}
+		} else {
+			std::cout << "Request invalid" << std::endl;
+		}
+
+		return ehResult;
+	}
+
+
 };
 
 
@@ -1098,6 +1211,19 @@ void t_read_sound(void *param)
 	}
 }	
 
+void t_read_ultrasonic(void *param)
+{
+	DemoResource *pdemo = (DemoResource *)param;
+	int value = pdemo->ultrasonic_read();
+
+	if(value == -1) {
+		cout << "Unable to read ultrasonic sensor" << endl;
+	} else {
+		//cout << "Update ultrasonic: " << value << endl;
+		pdemo->ultrasonic = value;
+	}
+}	
+
 void t_update_ip_on_lcd(void *param)
 {
 	DemoResource *pdemo = (DemoResource *)param;
@@ -1125,7 +1251,7 @@ void t_write_led_blue(void *param)
 
 void * grovepi_thread(void *param)
 {
-	//void (*w_func)(void *);
+	void (*w_func)(void *);
 	list <void (*)(void *)> read_func;
 	list <void (*)(void *)>::iterator iter_f;
 
@@ -1134,12 +1260,12 @@ void * grovepi_thread(void *param)
 	read_func.push_back(t_read_light);
 	read_func.push_back(t_read_sound);
 	read_func.push_back(CheckButtonRepresentation);
+	read_func.push_back(t_read_ultrasonic);
 	iter_f = read_func.begin();
 
 	//cout << "Function pointer list size: " << read_func.size() << endl;	
 
 	while(1) {
-#if 0
 		led_write_lock.lock();
 		if(!write_queue.empty()) {
 			w_func = write_queue.front();
@@ -1147,14 +1273,12 @@ void * grovepi_thread(void *param)
 			write_queue.pop();
 		}
 		led_write_lock.unlock();
-#endif
 
 		(*iter_f)(param);
 		iter_f++;
 			
 		if(iter_f == read_func.end())
 			iter_f = read_func.begin();
-		usleep(200);
 	}
 
 	return NULL;
@@ -1292,6 +1416,11 @@ int main(int argc, char* argv[])
 	try {
 		// Create the instance of the resource class
 		DemoResource myDemo;
+
+		if(myDemo.python_server_connect()) {
+			std::cout << "Can not connect to GrovePi python server" << std::endl;
+			return 1;
+		}
 
 		// Invoke createResource function of class light.
 		myDemo.createResource();

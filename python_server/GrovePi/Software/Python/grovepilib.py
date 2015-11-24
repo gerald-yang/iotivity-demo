@@ -29,9 +29,9 @@ buzzer = 8
 # SIG,NC,VCC,GND
 button = 3
 
-
-
-
+# Connect the Grove Ultrasonic Ranger to digital port D4
+# SIG,NC,VCC,GND
+ultrasonic_ranger = 4
 
 def CtoF( tempc ):
         "This converts celcius to fahrenheit"
@@ -110,3 +110,7 @@ def button_read():
         status = grovepi.digitalRead(button)
         time.sleep(.5)
         return status
+
+def ultransonic_read():
+        return grovepi.ultrasonicRead(ultrasonic_ranger)
+

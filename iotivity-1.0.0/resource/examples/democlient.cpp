@@ -45,11 +45,14 @@ std::shared_ptr<OCResource> buzzerResourceA = NULL;
 std::shared_ptr<OCResource> buzzerResourceP = NULL;
 std::shared_ptr<OCResource> buttonResourceA = NULL;
 std::shared_ptr<OCResource> buttonResourceP = NULL;
+std::shared_ptr<OCResource> ultrasonicResourceP = NULL;
 static ObserveType observe_type = ObserveType::Observe;
 std::mutex curResourceLock;
 
 void * button_observer (void *param); 
 std::mutex observe_thread_lock;
+
+std::string my_ip;
 
 class Demo
 {
@@ -82,6 +85,7 @@ public:
 	std::string lcd_p_str;
 	double buzzer_p;
 	int button_p;
+	int ultrasonic_p;
 	int inObserve_p;
 
 	// For server part
@@ -115,6 +119,9 @@ public:
 	OCResourceHandle button_p_resourceHandle;
 	OCRepresentation button_p_rep;
 
+	OCResourceHandle ultrasonic_p_resourceHandle;
+	OCRepresentation ultrasonic_p_rep;
+
 	ObservationIds m_interestedObservers;
 
 	int observe_thread_running;
@@ -130,7 +137,9 @@ public:
 		led_p_red(0), led_p_green(0), led_p_blue(0),
 	  	lcd_p_str("LCD Demo"),
 		buzzer_p(0.0),
-		button_p(0), inObserve_p(0),
+		button_p(0),		
+		ultrasonic_p(0), 
+		inObserve_p(0),
 		observe_thread_running(0)
 	{
 		// Initial representation
@@ -140,18 +149,18 @@ public:
 		sensor_a_rep.setValue("light", sensor_a_light);
 		sensor_a_rep.setValue("sound", sensor_a_sound);
 
-		led_p_rep.setUri("/gateway/leda");
-		led_p_rep.setValue("status", led_a_status);
+		led_a_rep.setUri("/gateway/leda");
+		led_a_rep.setValue("status", led_a_status);
 
-		led_p_rep.setUri("/gateway/lcda");
-		led_p_rep.setValue("lcd", lcd_a_str);
+		lcd_a_rep.setUri("/gateway/lcda");
+		lcd_a_rep.setValue("lcd", lcd_a_str);
 
-		led_p_rep.setUri("/gateway/buzzera");
-		led_p_rep.setValue("tone", buzzer_a);
+		buzzer_a_rep.setUri("/gateway/buzzera");
+		buzzer_a_rep.setValue("tone", buzzer_a);
 
-		led_p_rep.setUri("/gateway/buttona");
-		led_p_rep.setValue("button", button_a);
-		led_p_rep.setValue("touch", touch_a);
+		button_a_rep.setUri("/gateway/buttona");
+		button_a_rep.setValue("button", button_a);
+		button_a_rep.setValue("touch", touch_a);
 
 		// Raspberry Pi 2
 		sensor_p_rep.setUri("/gateway/sensorp");
@@ -165,14 +174,17 @@ public:
 		led_p_rep.setValue("green", led_p_green);
 		led_p_rep.setValue("blue", led_p_blue);
 
-		led_p_rep.setUri("/gateway/lcdp");
-		led_p_rep.setValue("lcd", lcd_p_str);
+		lcd_p_rep.setUri("/gateway/lcdp");
+		lcd_p_rep.setValue("lcd", lcd_p_str);
 
-		led_p_rep.setUri("/gateway/buzzerp");
-		led_p_rep.setValue("buzzer", buzzer_p);
+		buzzer_p_rep.setUri("/gateway/buzzerp");
+		buzzer_p_rep.setValue("buzzer", buzzer_p);
 
-		led_p_rep.setUri("/gateway/buttonp");
-		led_p_rep.setValue("button", button_p);
+		button_p_rep.setUri("/gateway/buttonp");
+		button_p_rep.setValue("button", button_p);
+		
+		ultrasonic_p_rep.setUri("/gateway/ultrasonicp");
+		ultrasonic_p_rep.setValue("ultrasonic", ultrasonic_p);
 	}
 
 	void createResource()
@@ -199,6 +211,7 @@ public:
 		EntityHandler lcd_p_cb = std::bind(&Demo::lcd_p_entityHandler, this,PH::_1);
 		EntityHandler buzzer_p_cb = std::bind(&Demo::buzzer_p_entityHandler, this,PH::_1);
 		EntityHandler button_p_cb = std::bind(&Demo::button_p_entityHandler, this,PH::_1);
+		EntityHandler ultrasonic_p_cb = std::bind(&Demo::ultrasonic_p_entityHandler, this,PH::_1);
 
 		// This will internally create and register the resource.
 
@@ -316,6 +329,17 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name2 
 				<< " button resource creation was unsuccessful\n";
+
+		// Create Ultrasonic resource
+		resourceURI = "/gateway/ultrasonicp";
+		resourceTypeName = "gateway.ultrasonicp";
+		result = OCPlatform::registerResource(
+			ultrasonic_p_resourceHandle, resourceURI, resourceTypeName,
+			resourceInterface, ultrasonic_p_cb, resourceProperty);
+
+		if (OC_STACK_OK != result)
+			std::cout << resource_name2 
+				<< " ultrasonic resource creation was unsuccessful\n";
 	}
 
 	void put_led_a(OCRepresentation& rep);
@@ -395,6 +419,12 @@ public:
 	{
 		button_p_rep.setValue("button", button_p);
 		return button_p_rep;
+	}
+
+	OCRepresentation get_ultrasonic_p()
+	{
+		ultrasonic_p_rep.setValue("ultrasonic", ultrasonic_p);
+		return ultrasonic_p_rep;
 	}
 
 private:
@@ -1130,6 +1160,77 @@ private:
 		return ehResult;
 	}
 
+	OCEntityHandlerResult ultrasonic_p_entityHandler(std::shared_ptr<OCResourceRequest> request)
+	{
+		std::cout << resource_name2 << " In Server button entity handler:\n";
+		OCEntityHandlerResult ehResult = OC_EH_ERROR;
+
+		if(request) {
+			// Get the request type and request flag
+			std::string requestType = request->getRequestType();
+			int requestFlag = request->getRequestHandlerFlag();
+
+			if(requestFlag & RequestHandlerFlag::RequestFlag) {
+				//std::cout << "\t\trequestFlag : Request\n";
+				auto pResponse = std::make_shared<OC::OCResourceResponse>();
+				pResponse->setRequestHandle(request->getRequestHandle());
+				pResponse->setResourceHandle(request->getResourceHandle());
+
+				// Check for query params (if any)
+				QueryParamsMap queries = request->getQueryParameters();
+
+				if (!queries.empty()) {
+					std::cout << "\nQuery processing upto entityHandler" << std::endl;
+				}
+
+				for (auto it : queries) {
+					std::cout << "Query key: " << it.first << 
+						" value : " << it.second << std:: endl;
+				}
+
+				if(requestType == "GET") {
+					std::cout << "\trequestType : GET\n";
+					pResponse->setErrorCode(200);
+					pResponse->setResponseResult(OC_EH_OK);
+					pResponse->setResourceRepresentation(get_ultrasonic_p());
+					if(OC_STACK_OK == OCPlatform::sendResponse(pResponse)) {
+						ehResult = OC_EH_OK;
+					}
+				} else if(requestType == "PUT") {
+					std::cout << "\trequestType : PUT\n";
+				} else if(requestType == "POST") {
+					std::cout << "\trequestType : POST\n";
+				} else if(requestType == "DELETE") {
+					std::cout << "\tDelete request received" << std::endl;
+				}
+			}
+
+			if(requestFlag & RequestHandlerFlag::ObserverFlag) {
+				ObservationInfo observationInfo = request->getObservationInfo();
+
+				if(ObserveAction::ObserveRegister == observationInfo.action) {
+					std::cout << "Register observer" << std::endl;
+					m_interestedObservers.push_back(observationInfo.obsId);
+				} else if(ObserveAction::ObserveUnregister == observationInfo.action) {
+					std::cout << "Un-register observer" << std::endl;
+					m_interestedObservers.erase(std::remove(
+							m_interestedObservers.begin(),
+							m_interestedObservers.end(),
+							observationInfo.obsId),
+							m_interestedObservers.end());
+				}
+
+				std::cout << "\trequestFlag : Observer\n";
+				ehResult = OC_EH_OK;
+			}
+		} else {
+			std::cout << "Request invalid" << std::endl;
+		}
+
+		return ehResult;
+	}
+
+
 };
 
 Demo mydemo;
@@ -1822,6 +1923,26 @@ void onGetButtonA(const HeaderOptions& /*headerOptions*/, const OCRepresentation
 	}
 }
 
+void onGetUltrasonic(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, const int eCode)
+{
+	try {
+		if(eCode == OC_STACK_OK) {
+			std::cout << "GET request was successful" << std::endl;
+			std::cout << "Resource URI: " << rep.getUri() << std::endl;
+
+			rep.getValue("ultrasonic", mydemo.ultrasonic_p);
+
+			std::cout << "\tultrasonic: " << mydemo.ultrasonic_p << std::endl;
+		} else {
+			std::cout << "onGET Response error: " << eCode << std::endl;
+			std::exit(-1);
+		}
+	}
+	catch(std::exception& e) {
+		std::cout << "Exception: " << e.what() << " in onGetUltrasonic" << std::endl;
+	}
+}
+
 			
 // Local function to get representation of light resource
 void getSensorRepresentationP(std::shared_ptr<OCResource> resource)
@@ -1912,6 +2033,19 @@ void getButtonRepresentationA(std::shared_ptr<OCResource> resource)
 	}
 }
 
+void getUltrasonicRepresentationP(std::shared_ptr<OCResource> resource)
+{
+	if(resource) {
+		std::cout << "Getting Ultrasonic Representation..."<<std::endl;
+
+		// Invoke resource's get API with the callback parameter
+		QueryParamsMap test;
+		resource->get(test, &onGetUltrasonic);
+	}
+}
+
+static void lcd_p_write(std::string str);
+
 // Callback to found resources
 void foundResource(std::shared_ptr<OCResource> resource)
 {
@@ -1999,6 +2133,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 					std::cout << "Find LCD resource" << std::endl;
 					lcdResourceP = resource;
 					getLcdRepresentationP(lcdResourceP);
+					lcd_p_write(my_ip);
 				}
 			}
 
@@ -2050,6 +2185,15 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				}
 			}
 
+			if(resourceURI == "/grovepi/ultrasonic") {
+				if(ultrasonicResourceP) {
+					std::cout << "Found another ultrasonic resource, ignoring" << std::endl;
+				} else {
+					std::cout << "Find ultrasonic resource" << std::endl;
+					ultrasonicResourceP = resource;
+				}
+			}
+
 		} else {
 			// Resource is invalid
 			std::cout << "Resource is invalid" << std::endl;
@@ -2065,7 +2209,7 @@ void printUsage()
 	std::cout << std::endl;
 	std::cout << "---------------------------------------------------------------------\n";
 	std::cout << "Usage :" << std::endl;
-	std::cout << "democlient <influxdb IP address>:<port>" << std::endl;
+	std::cout << "democlient <influxdb IP address>:<port> <host IP address> <debug mode>" << std::endl;
 	std::cout << "---------------------------------------------------------------------\n\n";
 }
 
@@ -2175,6 +2319,11 @@ static void button_a_register(int cmd)
 		button_a_read();
 }
 
+static void ultrasonic_p_read()
+{
+	getUltrasonicRepresentationP(ultrasonicResourceP);
+}
+
 static void print_menu()
 {
 	std::cout << "Demo client menu" << std::endl;
@@ -2184,11 +2333,12 @@ static void print_menu()
 	std::cout << "3  : Write string to LCD" << std::endl;
 	std::cout << "4  : Write buzzer" << std::endl;
 	std::cout << "5  : Button control" << std::endl;
-	std::cout << "6  : Read sensors (Arduino)" << std::endl;
-	std::cout << "7  : Write LED (Arduino)" << std::endl;
-	std::cout << "8  : Write string to LCD (Arduino)" << std::endl;
-	std::cout << "9  : Write buzzer (Arduino)" << std::endl;
-	std::cout << "10 : Button control (Arduino)" << std::endl;
+	std::cout << "6  : Read ultrasonic" << std::endl;
+	std::cout << "7  : Read sensors (Arduino)" << std::endl;
+	std::cout << "8  : Write LED (Arduino)" << std::endl;
+	std::cout << "9  : Write string to LCD (Arduino)" << std::endl;
+	std::cout << "10  : Write buzzer (Arduino)" << std::endl;
+	std::cout << "111 : Button control (Arduino)" << std::endl;
 }
 
 static void print_menu_led_p()
@@ -2246,6 +2396,7 @@ void *find_all_resource(void *)
 	std::string lcd_p_rt = "?rt=grovepi.lcd";
 	std::string buzzer_p_rt = "?rt=grovepi.buzzer";
 	std::string button_p_rt = "?rt=grovepi.button";
+	std::string ultrasonic_p_rt = "?rt=grovepi.ultrasonic";
 
 	// Arduino server
 	std::string sensor_a_rt = "?rt=grove.sensor";
@@ -2254,7 +2405,7 @@ void *find_all_resource(void *)
 	std::string buzzer_a_rt = "?rt=grove.buzzer";
 	std::string button_a_rt = "?rt=grove.button";
 
-	while(!sensorResourceP || !ledResourceP || !lcdResourceP || !buzzerResourceP || !buttonResourceP
+	while(!sensorResourceP || !ledResourceP || !lcdResourceP || !buzzerResourceP || !buttonResourceP || !ultrasonicResourceP
 		|| !sensorResourceA || !ledResourceA || !lcdResourceA || !buzzerResourceA || !buttonResourceA) 
 	{
 
@@ -2292,6 +2443,13 @@ void *find_all_resource(void *)
 			requestURI << OC_RSRVD_WELL_KNOWN_URI << button_p_rt;
 			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
 			std::cout << mydemo.resource_name2 << " Finding Button Resource... " << std::endl;
+		}
+
+		if(!ultrasonicResourceP) {
+			requestURI.str("");
+			requestURI << OC_RSRVD_WELL_KNOWN_URI << ultrasonic_p_rt;
+			OCPlatform::findResource("", requestURI.str(), CT_DEFAULT, &foundResource);
+			std::cout << mydemo.resource_name2 << " Finding Ultrasonic Resource... " << std::endl;
 		}
 
 #if 0
@@ -2344,7 +2502,9 @@ int main(int argc, char* argv[])
 	if(argc >= 2) {
 		mydemo.influxdb_ip = argv[1];
 		std::cout << "Infruxdb_ip: " << mydemo.influxdb_ip << std::endl;
-		if(argc == 3 && argv[2][0] == '1')
+		if(argc >= 3) 
+			my_ip = argv[2];
+		if(argc == 4 && argv[3][0] == '1')
 			mydemo.debug_mode = 1;
 	} else {
 		printUsage();
@@ -2443,13 +2603,20 @@ int main(int argc, char* argv[])
 					}
 					break;
 				case 6:
+					if(!ultrasonicResourceP) {
+						std::cout << "Ultrasonic resource not found" << std::endl;
+					} else {
+						ultrasonic_p_read();
+					}
+					break;
+				case 7:
 					if(!sensorResourceA) {
 						std::cout << "Sensor resource not found (Arduino)" << std::endl;
 					} else {
 						sensor_a_read();
 					}
 					break;
-				case 7:
+				case 8:
 					if(!ledResourceA) {
 						std::cout << "LED resource not found (Arduino)" << std::endl;
 					} else {
@@ -2458,7 +2625,7 @@ int main(int argc, char* argv[])
 						led_a_write(cmd1);
 					}
 					break;
-				case 8:
+				case 9:
 					if(!lcdResourceA) {
 						std::cout << "LCD resource not found (Arduino)" << std::endl;
 					} else {
@@ -2467,7 +2634,7 @@ int main(int argc, char* argv[])
 						lcd_a_write(str);
 					}
 					break;
-				case 9:
+				case 10:
 					if(!buzzerResourceA) {
 						std::cout << "Buzzer resource not found (Arduino)" << std::endl;
 					} else {
@@ -2476,7 +2643,7 @@ int main(int argc, char* argv[])
 						buzzer_a_write(tone);
 					}
 					break;
-				case 10:
+				case 11:
 					if(!buttonResourceA) {
 						std::cout << "Button resource not found (Arduino)" << std::endl;
 					} else {
