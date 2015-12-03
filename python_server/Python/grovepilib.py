@@ -63,12 +63,15 @@ def sensor_read_temp():
 		try:
         		[ temp,hum ] = grovepi.dht(dht11_sensor_port,0)
         		time.sleep(.1)
-			break
+			if math.isnan(temp):
+				print 'fail to read temperature sensor, retry again'
+				retry = retry -1
+			else:
+				break
 		except:
 			print 'can not read temperature sensor, retry again'
 			retry = retry - 1
         		time.sleep(.1)
-        #print temp
 	if retry == 0:
 		return -1
 	else:
@@ -82,12 +85,15 @@ def sensor_read_humidity():
 		try:
         		[ temp,hum ] = grovepi.dht(dht11_sensor_port,0)
         		time.sleep(.1)
-			break
+			if math.isnan(hum):
+				print 'fail to read humidity sensor, retry again'
+				retry = retry - 1
+			else:
+				break
 		except:
 			print 'can not read humidity sensor, retry again'
 			retry = retry - 1
         		time.sleep(.1)
-        #print hum
 	if retry == 0:
 		return -1
 	else:
@@ -221,23 +227,20 @@ def button_read():
 	else:
         	return status
 
-def ultrasonic_read():
+def ultransonic_read():
 	retry = 3
 	while retry > 0:
 		try:
- 			d = grovepi.ultrasonicRead(ultrasonic_ranger)
-			print d
-		        time.sleep(.2)
+			status = grovepi.ultrasonicRead(ultrasonic_ranger)
+			time.sleep(.2)
 			break
 		except:
 			print 'can not read ultrasonic, retry again'
 			retry = retry - 1
-        		time.sleep(.2)
-		
+			time.sleep(.2)
+
 	if retry == 0:
 		return -1
 	else:
-        	return d
-			
-
+		return status
 
