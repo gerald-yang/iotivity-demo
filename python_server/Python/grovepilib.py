@@ -227,7 +227,7 @@ def button_read():
 	else:
         	return status
 
-def ultransonic_read():
+def ultrasonic_read():
 	retry = 3
 	while retry > 0:
 		try:

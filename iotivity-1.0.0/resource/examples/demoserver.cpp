@@ -210,7 +210,7 @@ public:
 		resourceURI = "/grovepi/ultrasonic";
 		resourceTypeName = "grovepi.ultrasonic";
 		result = OCPlatform::registerResource(
-			button_resourceHandle, resourceURI, resourceTypeName,
+			ultrasonic_resourceHandle, resourceURI, resourceTypeName,
 			resourceInterface, ultrasonic_cb, resourceProperty);
 
 		if (OC_STACK_OK != result)

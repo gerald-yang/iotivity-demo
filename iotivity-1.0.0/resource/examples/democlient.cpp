@@ -187,10 +187,10 @@ public:
 		ultrasonic_p_rep.setValue("ultrasonic", ultrasonic_p);
 	}
 
-	void createResource()
+	void createResourceSensorA()
 	{
-		std::cout << "Create server resource" << std::endl;
-		// Sensor resource
+#if 0   // Don't uses sensors on Arduino
+		std::cout << "Create server resource for Arduino sensors" << std::endl;
 		std::string resourceURI;
 		std::string resourceTypeName;
 		std::string resourceInterface = DEFAULT_INTERFACE;
@@ -201,23 +201,8 @@ public:
 
 		// Resource callback functions
 		EntityHandler sensor_a_cb = std::bind(&Demo::sensor_a_entityHandler, this,PH::_1);
-		EntityHandler led_a_cb = std::bind(&Demo::led_a_entityHandler, this,PH::_1);
-		EntityHandler lcd_a_cb = std::bind(&Demo::lcd_a_entityHandler, this,PH::_1);
-		EntityHandler buzzer_a_cb = std::bind(&Demo::buzzer_a_entityHandler, this,PH::_1);
-		EntityHandler button_a_cb = std::bind(&Demo::button_a_entityHandler, this,PH::_1);
 
-		EntityHandler sensor_p_cb = std::bind(&Demo::sensor_p_entityHandler, this,PH::_1);
-		EntityHandler led_p_cb = std::bind(&Demo::led_p_entityHandler, this,PH::_1);
-		EntityHandler lcd_p_cb = std::bind(&Demo::lcd_p_entityHandler, this,PH::_1);
-		EntityHandler buzzer_p_cb = std::bind(&Demo::buzzer_p_entityHandler, this,PH::_1);
-		EntityHandler button_p_cb = std::bind(&Demo::button_p_entityHandler, this,PH::_1);
-		EntityHandler ultrasonic_p_cb = std::bind(&Demo::ultrasonic_p_entityHandler, this,PH::_1);
-
-		// This will internally create and register the resource.
-
-		// Arduino
 		// Create sensor resource
-#if 0   // Don't uses sensors on Arduino
 		resourceURI = "/gateway/sensora";
 		resourceTypeName = "gateway.sensora";
 		result = OCPlatform::registerResource(
@@ -228,6 +213,21 @@ public:
 			std::cout << resource_name1
 				<< " sensor resource creation was unsuccessful\n";
 #endif
+	}
+
+	void createResourceLedA()
+	{
+		std::cout << "Create server resource for Arduino LED" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler led_a_cb = std::bind(&Demo::led_a_entityHandler, this,PH::_1);
 
 		// Create LED resource
 		resourceURI = "/gateway/leda";
@@ -239,6 +239,21 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name1
 				<< " LED resource creation was unsuccessful\n";
+	}
+
+	void createResourceLcdA()
+	{
+		std::cout << "Create server resource for Arduino LCD" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler lcd_a_cb = std::bind(&Demo::lcd_a_entityHandler, this,PH::_1);
 
 		// Create LCD resource
 		resourceURI = "/gateway/lcda";
@@ -250,6 +265,21 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name1
 				<< " LCD resource creation was unsuccessful\n";
+	}
+
+	void createResourceBuzzerA()
+	{
+		std::cout << "Create server resource for Arduino buzzer" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler buzzer_a_cb = std::bind(&Demo::buzzer_a_entityHandler, this,PH::_1);
 
 		// Create Buzzer resource
 		resourceURI = "/gateway/buzzera";
@@ -261,6 +291,21 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name1 
 				<< " buzzer resource creation was unsuccessful\n";
+	}
+
+	void createResourceButtonA()
+	{
+		std::cout << "Create server resource for Arduino button" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler button_a_cb = std::bind(&Demo::button_a_entityHandler, this,PH::_1);
 
 		// Create Button resource
 		resourceURI = "/gateway/buttona";
@@ -272,9 +317,22 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name1
 				<< " button resource creation was unsuccessful\n";
-	
+	}
 
-		// Raspberry Pi 2
+	void createResourceSensorP()
+	{
+		std::cout << "Create server resource for RaspberryPi2 sensors" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler sensor_p_cb = std::bind(&Demo::sensor_p_entityHandler, this,PH::_1);
+
 		// Create sensor resource
 		resourceURI = "/gateway/sensorp";
 		resourceTypeName = "gateway.sensorp";
@@ -285,6 +343,21 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name2 
 				<< " sensor resource creation was unsuccessful\n";
+	}
+
+	void createResourceLedP()
+	{
+		std::cout << "Create server resource for RaspberryPi2 LEDs" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler led_p_cb = std::bind(&Demo::led_p_entityHandler, this,PH::_1);
 
 		// Create LED resource
 		resourceURI = "/gateway/ledp";
@@ -296,6 +369,21 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name2 
 				<< " LED resource creation was unsuccessful\n";
+	}
+
+	void createResourceLcdP()
+	{
+		std::cout << "Create server resource for RaspberryPi2 LCD" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler lcd_p_cb = std::bind(&Demo::lcd_p_entityHandler, this,PH::_1);
 
 		// Create LCD resource
 		resourceURI = "/gateway/lcdp";
@@ -307,6 +395,21 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name2 
 				<< " LCD resource creation was unsuccessful\n";
+	}
+
+	void createResourceBuzzerP()
+	{
+		std::cout << "Create server resource for RaspberryPi2 buzzer" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler buzzer_p_cb = std::bind(&Demo::buzzer_p_entityHandler, this,PH::_1);
 
 		// Create Buzzer resource
 		resourceURI = "/gateway/buzzerp";
@@ -318,6 +421,21 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name2 
 				<< " buzzer resource creation was unsuccessful\n";
+	}
+
+	void createResourceButtonP()
+	{
+		std::cout << "Create server resource for RaspberryPi2 button" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler button_p_cb = std::bind(&Demo::button_p_entityHandler, this,PH::_1);
 
 		// Create Button resource
 		resourceURI = "/gateway/buttonp";
@@ -329,6 +447,21 @@ public:
 		if (OC_STACK_OK != result)
 			std::cout << resource_name2 
 				<< " button resource creation was unsuccessful\n";
+	}
+
+	void createResourceUltrasonicP()
+	{
+		std::cout << "Create server resource for RaspberryPi2 ultrasonic" << std::endl;
+		std::string resourceURI;
+		std::string resourceTypeName;
+		std::string resourceInterface = DEFAULT_INTERFACE;
+		OCStackResult result; 
+		
+		// OCResourceProperty is defined ocstack.h
+		uint8_t resourceProperty = OC_DISCOVERABLE | OC_OBSERVABLE;
+
+		// Resource callback functions
+		EntityHandler ultrasonic_p_cb = std::bind(&Demo::ultrasonic_p_entityHandler, this,PH::_1);
 
 		// Create Ultrasonic resource
 		resourceURI = "/gateway/ultrasonicp";
@@ -1312,7 +1445,7 @@ void sensor_write_db()
 	db_cmd += "'temperature,sensor=1 value=";
        	db_cmd += std::to_string(mydemo.sensor_p_temp);
 	db_cmd += "'";
-	std::cout << db_cmd.c_str() << std::endl;
+	//std::cout << db_cmd.c_str() << std::endl;
 	if(system(db_cmd.c_str()) == -1) {
 		std::cout << "System command failed:" << std::endl;
 		std::cout << db_cmd << std::endl;
@@ -1323,7 +1456,7 @@ void sensor_write_db()
 	db_cmd += "'humidity,sensor=1 value=";
        	db_cmd += std::to_string(mydemo.sensor_p_humidity);
 	db_cmd += "'";
-	std::cout << db_cmd.c_str() << std::endl;
+	//std::cout << db_cmd.c_str() << std::endl;
 	if(system(db_cmd.c_str()) == -1) {
 		std::cout << "System command failed:" << std::endl;
 		std::cout << db_cmd << std::endl;
@@ -1334,7 +1467,7 @@ void sensor_write_db()
 	db_cmd += "'light,sensor=1 value=";
        	db_cmd += std::to_string(mydemo.sensor_p_light);
 	db_cmd += "'";
-	std::cout << db_cmd.c_str() << std::endl;
+	//std::cout << db_cmd.c_str() << std::endl;
 	if(system(db_cmd.c_str()) == -1) {
 		std::cout << "System command failed:" << std::endl;
 		std::cout << db_cmd << std::endl;
@@ -1345,7 +1478,7 @@ void sensor_write_db()
 	db_cmd += "'sound,sensor=1 value=";
        	db_cmd += std::to_string(mydemo.sensor_p_sound);
 	db_cmd += "'";
-	std::cout << db_cmd.c_str() << std::endl;
+	//std::cout << db_cmd.c_str() << std::endl;
 	if(system(db_cmd.c_str()) == -1) {
 		std::cout << "System command failed:" << std::endl;
 		std::cout << db_cmd << std::endl;
@@ -2094,6 +2227,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find sensor resource" << std::endl;
 					sensorResourceP = resource;
+					mydemo.createResourceSensorP();
 				}
 			}
 
@@ -2103,6 +2237,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find Arduino sensor resource" << std::endl;
 					sensorResourceA = resource;
+					mydemo.createResourceSensorA();
 				}
 			}
 
@@ -2112,6 +2247,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find LED resource" << std::endl;
 					ledResourceP = resource;
+					mydemo.createResourceLedP();
 					getLedRepresentationP(ledResourceP);
 				}
 			}
@@ -2122,6 +2258,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find Arduino led resource" << std::endl;
 					ledResourceA = resource;
+					mydemo.createResourceLedA();
 					getLedRepresentationA(ledResourceA);
 				}
 			}
@@ -2132,6 +2269,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find LCD resource" << std::endl;
 					lcdResourceP = resource;
+					mydemo.createResourceLcdP();
 					getLcdRepresentationP(lcdResourceP);
 					lcd_p_write(my_ip);
 				}
@@ -2143,6 +2281,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find Arduino LCD resource" << std::endl;
 					lcdResourceA = resource;
+					mydemo.createResourceLcdA();
 					getLcdRepresentationA(lcdResourceA);
 				}
 			}
@@ -2153,6 +2292,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find buzzer resource" << std::endl;
 					buzzerResourceP = resource;
+					mydemo.createResourceBuzzerP();
 				}
 			}
 
@@ -2162,6 +2302,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find Arduino buzzer resource" << std::endl;
 					buzzerResourceA = resource;
+					mydemo.createResourceBuzzerA();
 				}
 			}
 
@@ -2171,6 +2312,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find button resource" << std::endl;
 					buttonResourceP = resource;
+					mydemo.createResourceButtonP();
 					buttonResourceP->observe(observe_type, QueryParamsMap(), &onObserveButtonP);
 				}
 			}
@@ -2181,6 +2323,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find Arduino button resource" << std::endl;
 					buttonResourceA = resource;
+					mydemo.createResourceButtonA();
 					buttonResourceA->observe(observe_type, QueryParamsMap(), &onObserveButtonA);
 				}
 			}
@@ -2191,6 +2334,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
 				} else {
 					std::cout << "Find ultrasonic resource" << std::endl;
 					ultrasonicResourceP = resource;
+					mydemo.createResourceUltrasonicP();
 				}
 			}
 
@@ -2524,10 +2668,6 @@ int main(int argc, char* argv[])
 
 	OCPlatform::Configure(cfg);
 	std::cout << "done" << std::endl;
-
-
-	std::cout << "Start server" << std::endl;
-	mydemo.createResource();
 
 	std::cout << "Start client" << std::endl;
 	pthread_t tid;
