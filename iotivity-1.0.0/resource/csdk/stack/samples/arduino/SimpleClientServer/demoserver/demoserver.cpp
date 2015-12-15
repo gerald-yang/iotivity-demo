@@ -382,6 +382,10 @@ OCEntityHandlerResult LedOCEntityHandlerCb(OCEntityHandlerFlag flag, OCEntityHan
 			OCRepPayload *rep = (OCRepPayload *)entityHandlerRequest->payload;
 			OC_LOG(INFO, TAG, ("PUT request"));
 			OCRepPayloadGetPropInt(rep, "status", &status);
+			if(status > 255)
+				status = 255;
+			else if(status < 0)
+				status = 0;
 			led.status = (int)status;
 			led_put();
 			OCRepPayloadSetPropInt(payload, "status", led.status);
@@ -501,6 +505,10 @@ OCEntityHandlerResult BuzzerOCEntityHandlerCb(OCEntityHandlerFlag flag, OCEntity
 			OC_LOG(INFO, TAG, ("PUT request"));
 			OCRepPayload *rep = (OCRepPayload *)entityHandlerRequest->payload;
 			OCRepPayloadGetPropInt(rep, "tone", &tone);
+			if(tone > 1915)
+				tone = 1915;
+			else if(tone < 956)
+				tone = 956;
 			buzzer.tone = (int)tone;
 			OC_LOG_V(INFO, TAG, "Buzzer tone: %d", buzzer.tone);
 			buzzer_put();
