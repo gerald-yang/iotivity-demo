@@ -23,9 +23,17 @@
 #include <string>
 #include <map>
 #include <cstdlib>
-#include <pthread.h>
 #include <mutex>
 #include <condition_variable>
+
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
+
 #include "OCPlatform.h"
 #include "OCApi.h"
 
@@ -1983,7 +1991,7 @@ void onGetLcdP(const HeaderOptions& /*headerOptions*/, const OCRepresentation& r
 
 			rep.getValue("lcd", mydemo.lcd_p_str);
 
-			std::cout << "\tLED status: " << mydemo.lcd_p_str << std::endl;
+			std::cout << "\tLCD: " << mydemo.lcd_p_str << std::endl;
 		} else {
 			std::cout << "onGET Response error: " << eCode << std::endl;
 			std::exit(-1);
@@ -2003,7 +2011,7 @@ void onGetLcdA(const HeaderOptions& /*headerOptions*/, const OCRepresentation& r
 
 			rep.getValue("lcd", mydemo.lcd_a_str);
 
-			std::cout << "\tLED status: " << mydemo.lcd_a_str << std::endl;
+			std::cout << "\tLCD: " << mydemo.lcd_a_str << std::endl;
 		} else {
 			std::cout << "onGET Response error: " << eCode << std::endl;
 			std::exit(-1);
@@ -2639,9 +2647,301 @@ void *find_all_resource(void *)
 	return NULL;
 }
 
+std::string trim(std::string& str)
+{
+	size_t first = str.find_first_not_of(' ');
+	size_t last = str.find_last_not_of(' ');
+
+	if(first == std::string::npos)
+		return std::string();
+	else
+		return str.substr(first, (last-first+1));
+}
+
+void *socket_server_for_restful_api(void *)
+{
+	int listenfd = 0, connfd = 0;
+	struct sockaddr_in serveraddr; 
+	char buffer[65];
+	std::string data, name, value;
+	int data_len;
+
+	listenfd = socket(AF_INET, SOCK_STREAM, 0);
+	memset(&serveraddr, '0', sizeof(serveraddr));   
+
+	serveraddr.sin_family = AF_INET;
+	serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	serveraddr.sin_port = htons(6655); 
+
+	bind(listenfd, (struct sockaddr*)&serveraddr, sizeof(serveraddr)); 
+
+	while(true) {
+		listen(listenfd, 10); 
+
+		connfd = accept(listenfd, (struct sockaddr*)NULL, NULL); 
+		
+		while(true) {		
+			memset(buffer, 0, sizeof(buffer)); 
+
+			data_len = read(connfd, buffer, sizeof(buffer));
+
+			if(data_len < 0) {
+				std::cout << "error: read failed" << std::endl;
+				break;
+			} else if(data_len == 0) {
+				std::cout << "connection closed" << std::endl;
+				break;
+			}
+
+			data.assign(buffer);
+			std::cout << "Read: " << data << ":" << std::endl;
+
+			name = data.substr(0, 32);
+			name = trim(name);
+			std::cout << "Name: " << name << ":" << std::endl;
+
+			value = data.substr(32, 32);
+			value = trim(value);
+			if(value.empty()) {
+				std::cout << "read status" << std::endl;
+			} else {
+				std::cout << "write status: " << value << ":" << std::endl;
+			}
+
+			std::ostringstream value_str;
+			memset(buffer, 0, sizeof(buffer));
+			if(name == "sensor_p_temp") {
+				if(value.empty()) {
+					value_str << mydemo.sensor_p_temp;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write temperature value failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					std::cout << "error: do not write value to temperature sensor" << std::endl;
+				}
+			} else if(name == "sensor_p_humidity") {
+				if(value.empty()) {
+					value_str << mydemo.sensor_p_humidity;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write humidity value failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					std::cout << "error: do not write value to humidity sensor" << std::endl;
+				}
+			} else if(name == "sensor_p_light") {
+				if(value.empty()) {
+					value_str << mydemo.sensor_p_light;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write light value failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					std::cout << "error: do not write value to light sensor" << std::endl;
+				}
+			} else if(name == "sensor_p_sound") {
+				if(value.empty()) {
+					value_str << mydemo.sensor_p_sound;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write sound value failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					std::cout << "error: do not write value to sound sensor" << std::endl;
+				}
+			} else if(name == "led_p_red") {
+				if(value.empty()) {
+					value_str << mydemo.led_p_red;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write red LED failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					mydemo.led_p_red = std::stoi(value);
+					putLedRepresentationP(ledResourceP);
+				}
+			} else if(name == "led_p_green") {
+				if(value.empty()) {
+					value_str << mydemo.led_p_green;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write green LED failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					mydemo.led_p_green = std::stoi(value);
+					putLedRepresentationP(ledResourceP);
+				}
+			} else if(name == "led_p_blue") {
+				if(value.empty()) {
+					value_str << mydemo.led_p_blue;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write blue LED failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					mydemo.led_p_blue = std::stoi(value);
+					putLedRepresentationP(ledResourceP);
+				}
+			} else if(name == "lcd_p") {
+				if(value.empty()) {
+					strncpy(buffer, mydemo.lcd_p_str.c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write LCD failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					mydemo.lcd_p_str = value;
+					putLcdRepresentationP(lcdResourceP);
+				}
+			} else if(name == "buzzer_p") {
+				if(value.empty()) {
+					std::cout << "error: do not read buzzer" << std::endl;
+				} else {
+					mydemo.buzzer_p = std::stoi(value);
+					putBuzzerRepresentationP(buzzerResourceP);
+				}
+			} else if(name == "button_p") {
+				if(value.empty()) {
+					value_str << mydemo.button_p;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write button status failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					std::cout << "error: do not write value to button" << std::endl;
+				}
+			} else if(name == "sensor_p_ultrasonic") {
+				if(value.empty()) {
+					value_str << mydemo.ultrasonic_p;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write ultrasonic value failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					std::cout << "error: do not write value to ultrasonic" << std::endl;
+				}
+			} else if(name == "led_a") {
+				if(value.empty()) {
+					value_str << mydemo.led_a_status;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write LED failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					mydemo.led_a_status = std::stoi(value);
+					putLedRepresentationA(ledResourceA);
+				}
+			} else if(name == "lcd_a") {
+				if(value.empty()) {
+					strncpy(buffer, mydemo.lcd_a_str.c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write LCD failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					mydemo.lcd_a_str = value;
+					putLcdRepresentationA(lcdResourceA);
+				}
+			} else if(name == "buzzer_a") {
+				if(value.empty()) {
+					std::cout << "error: do not read buzzer" << std::endl;
+				} else {
+					mydemo.buzzer_a = std::stoi(value);
+					putBuzzerRepresentationA(buzzerResourceA);
+				}
+			} else if(name == "button_a") {
+				if(value.empty()) {
+					value_str << mydemo.button_a;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write button status failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					std::cout << "error: do not write value to button" << std::endl;
+				}
+			} else if(name == "touch_a") {
+				if(value.empty()) {
+					value_str << mydemo.touch_a;
+					strncpy(buffer, value_str.str().c_str(), sizeof(buffer));
+					data_len = write(connfd, buffer, strlen(buffer));
+					if (data_len < 0) {
+						std::cout << "error: write touch status failed" << std::endl;
+						break;
+					} else if (data_len == 0) {
+						std::cout << "connection closed" << std::endl;
+					}
+				} else {
+					std::cout << "error: do not write value to touch" << std::endl;
+				}
+			} else {
+				std::cout << "Unknown name: " << name << std::endl;
+			}
+
+		}
+		close(connfd);
+	}
+
+	return NULL;
+}
+							        
 int main(int argc, char* argv[])
 {
 	OCPersistentStorage ps {client_open, fread, fwrite, fclose, unlink };
+
+	std::cout << "Start socket server for restful api" << std::endl;
+	pthread_t server_tid;
+	pthread_create(&server_tid, NULL, socket_server_for_restful_api, NULL);
 
 	if(argc >= 2) {
 		mydemo.influxdb_ip = argv[1];
@@ -2676,6 +2976,7 @@ int main(int argc, char* argv[])
 	double curr_light = mydemo.sensor_p_light;
 	//double curr_temp = mydemo.sensor_temp;
 	double curr_temp = mydemo.sensor_p_temp = 100;
+	int light, light_level = 0;
 
 
 	while(true) {
@@ -2802,10 +3103,15 @@ int main(int argc, char* argv[])
 					break;
 			}
 		} else {
-			if(sensorResourceP && ledResourceP) {
+			if(sensorResourceP && ledResourceP) 
 				sensor_p_read();
-				sleep(2);
-			
+
+			if(ultrasonicResourceP && ledResourceA)
+				ultrasonic_p_read();
+
+			sleep(1.5);
+
+			if(sensorResourceP && ledResourceP) {
 				if(mydemo.sensor_p_light < 580 && curr_light >= 580) {
 					std::cout << "Light status change" << std::endl;
 					led_p_write(3);
@@ -2829,6 +3135,18 @@ int main(int argc, char* argv[])
 				}
 			}
 
+			if(ultrasonicResourceP && ledResourceA) {
+				light = 255;
+				if(mydemo.ultrasonic_p > 255)
+					light = 0;
+				else
+					light -= mydemo.ultrasonic_p;
+
+				if((light / 25) != light_level) {
+					led_a_write(light);
+					light_level = light / 25;
+				}
+			}
 		}
 	}
 
