@@ -222,7 +222,6 @@ public:
 		int portno = 5566;
 		struct sockaddr_in serv_addr;
 		int result = 0;
-		int timeout = 20;
 
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_port = htons(portno);
@@ -230,11 +229,11 @@ public:
 
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
 		if (sockfd < 0) {
-			std::cout << "ERROR: can not open socket" << std::endl;
+			std::cout << "ERROR: can not create socket" << std::endl;
 			return -1;
 		}
 
-		while(timeout--) {
+		while(1) {
 			result = connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr));
 			if (result < 0) {
 				std::cout << "Retry to connect to python server" << std::endl;
@@ -243,12 +242,7 @@ public:
 				break;
 			}
 
-			sleep(1);
-		}
-
-		if(result < 0) {
-			std::cout << "ERROR: timeout, can not connect to python server" << std::endl;
-			return -1;
+			sleep(2);
 		}
 
 		return 0;

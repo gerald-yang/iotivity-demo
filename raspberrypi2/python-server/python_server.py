@@ -2,8 +2,8 @@ import socket
 import math
 import decimal
 import time
-from Python import grovepi
-from Python import grovepilib
+from pygrovepi import grovepi
+from pygrovepi import grovepilib
 
 grovepilib.pin_config()
 
